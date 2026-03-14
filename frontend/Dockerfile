@@ -21,19 +21,14 @@ COPY . .
 
 RUN npm run build
 
-# 本番イメージ（Nginxで静的ホスティング）
-FROM nginx:alpine AS runner
+# 本番イメージ（nginx-unprivilgedで非rootかつポート8080で配信）
+# - 非rootユーザーでポート80(特権ポート)にbindする問題を解消
+# - Cloud Runの推奨ポートである8080に統一
+FROM nginxinc/nginx-unprivileged:alpine AS runner
 
-RUN addgroup --system --gid 1001 webgroup
-RUN adduser --system --uid 1001 webuser
+# ビルド済み静的ファイルをコピー（nginx-unprivilegedは内部でnginxユーザーを管理）
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# ビルド済み静的ファイルをコピー
-COPY --from=builder --chown=webuser:webgroup /app/dist /usr/share/nginx/html
-
-USER webuser
-
-EXPOSE 80
-
-ENV HOSTNAME="0.0.0.0"
+EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"]

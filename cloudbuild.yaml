@@ -28,7 +28,7 @@ steps:
       - "managed"
       - "--allow-unauthenticated"
       - "--port"
-      - "80" # Nginxのデフォルトポートを指定
+      - "8080" # nginx-unprivilegedのデフォルトポートに合わせる
 
 images:
   - "asia-northeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/git-push-pray-frontend:$COMMIT_SHA"
