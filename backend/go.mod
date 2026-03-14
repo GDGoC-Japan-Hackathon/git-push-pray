@@ -1,6 +1,6 @@
 module github.com/GDGoC-Japan-Hackathon/git-push-pray/backend
 
-go 1.25.0
+go 1.24.0
 
 require google.golang.org/genai v1.50.0
 
