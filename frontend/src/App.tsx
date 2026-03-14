@@ -94,7 +94,8 @@ export default function App() {
     
     // バックエンドAPIを呼び出す
     try {
-      const resp = await fetch('/api/chat', {
+      const apiBase = import.meta.env.VITE_API_BASE_URL ?? ''
+      const resp = await fetch(`${apiBase}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text })

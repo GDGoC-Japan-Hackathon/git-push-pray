@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"google.golang.org/genai"
+	"github.com/joho/godotenv"
 )
 
 // チャットリクエストのペイロード
@@ -94,6 +95,11 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// .envファイルから環境変数を読み込む
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, relying on system environment variables")
+	}
+
 	log.Println("Initializing GenAI client for Vertex AI...")
 	if err := initClient(); err != nil {
 		log.Fatalf("Fatal error initializing client: %v", err)
