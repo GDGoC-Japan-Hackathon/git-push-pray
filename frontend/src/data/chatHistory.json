@@ -1,0 +1,102 @@
+[
+  {
+    "id": "chat-001",
+    "title": "Reactフックの使い方",
+    "lastMessage": "useCallbackとuseMemoの違いを説明しました",
+    "timestamp": "2026-03-14T08:00:00Z",
+    "messages": [
+      {
+        "id": "msg-001-1",
+        "role": "user",
+        "content": "Reactフックを効果的に使う方法を教えてください。"
+      },
+      {
+        "id": "msg-001-2",
+        "role": "assistant",
+        "content": "# Reactフックのベストプラクティス\n\nReactフックはクラスを書かずにstateなどのReact機能を使えるようにする強力な機能です。\n\n## フックのルール\n\n1. **トップレベルでのみ呼び出す** - ループや条件分岐の中で呼び出さない\n2. **React関数内でのみ呼び出す**\n\n## よく使うフック\n\n- **useState**: ローカルのコンポーネントstate\n- **useEffect**: データフェッチなどの副作用\n- **useContext**: コンテキストの消費\n- **useCallback**: 関数のメモ化\n- **useMemo**: 値のメモ化"
+      },
+      {
+        "id": "msg-001-3",
+        "role": "user",
+        "content": "useCallbackとuseMemoの違いをもっと詳しく教えてください。"
+      },
+      {
+        "id": "msg-001-4",
+        "role": "assistant",
+        "content": "## useCallback vs useMemo\n\n### useCallback\n`useCallback`は**関数**をメモ化します。子コンポーネントにコールバックを渡すときの不要な再レンダーを防ぎます。\n\n```jsx\nconst handleClick = useCallback(() => {\n  console.log(count);\n}, [count]);\n```\n\n### useMemo\n`useMemo`は**値**をメモ化します。毎レンダーでの高コストな再計算を避けます。\n\n```jsx\nconst sortedList = useMemo(() => expensiveSort(items), [items]);\n```\n\n### 使い分け\n- **useCallback**: 子コンポーネントへのイベントハンドラー渡し時\n- **useMemo**: 計算量の多い処理の結果キャッシュ時"
+      }
+    ]
+  },
+  {
+    "id": "chat-002",
+    "title": "TypeScriptの型システム入門",
+    "lastMessage": "ジェネリクスと型推論について話し合いました",
+    "timestamp": "2026-03-13T15:30:00Z",
+    "messages": [
+      {
+        "id": "msg-002-1",
+        "role": "user",
+        "content": "TypeScriptのジェネリクスについて教えてください。"
+      },
+      {
+        "id": "msg-002-2",
+        "role": "assistant",
+        "content": "## TypeScript ジェネリクス\n\nジェネリクスは型をパラメータとして扱う機能です。\n\n```typescript\nfunction identity<T>(arg: T): T {\n  return arg;\n}\n\nconst result = identity<string>('hello'); // 'hello'\n```\n\n### よく使うパターン\n\n1. **関数のジェネリクス**: 引数と戻り値の型を関連付け\n2. **インターフェースのジェネリクス**: 再利用可能な型定義\n3. **制約 (constraints)**: `T extends SomeType`で型を制限"
+      }
+    ]
+  },
+  {
+    "id": "chat-003",
+    "title": "APIデザインのベストプラクティス",
+    "lastMessage": "RESTとGraphQLの違いを比較しました",
+    "timestamp": "2026-03-12T10:15:00Z",
+    "messages": [
+      {
+        "id": "msg-003-1",
+        "role": "user",
+        "content": "RESTとGraphQLはどちらを使うべきですか？"
+      },
+      {
+        "id": "msg-003-2",
+        "role": "assistant",
+        "content": "## REST vs GraphQL\n\n### REST\n- **シンプル**: HTTPメソッドとURLで操作を表現\n- **キャッシュ**: HTTPキャッシュが自然に使える\n- **学習コスト低**: 広く知られている\n\n### GraphQL\n- **柔軟なクエリ**: 必要なデータだけ取得\n- **型安全**: スキーマで型定義\n- **単一エンドポイント**: `/graphql` 一つでOK\n\n### 選択基準\n- シンプルなCRUDアプリ → **REST**\n- 複雑なデータ要件、複数クライアント → **GraphQL**"
+      }
+    ]
+  },
+  {
+    "id": "chat-004",
+    "title": "Dockerコンテナ化のガイド",
+    "lastMessage": "マルチステージビルドの最適化を説明しました",
+    "timestamp": "2026-03-11T09:00:00Z",
+    "messages": [
+      {
+        "id": "msg-004-1",
+        "role": "user",
+        "content": "Node.jsアプリをDockerでコンテナ化する方法を教えてください。"
+      },
+      {
+        "id": "msg-004-2",
+        "role": "assistant",
+        "content": "## Node.js Docker コンテナ化\n\n```dockerfile\n# マルチステージビルド\nFROM node:20-alpine AS builder\nWORKDIR /app\nCOPY package*.json ./\nRUN npm ci --only=production\n\nFROM node:20-alpine\nWORKDIR /app\nCOPY --from=builder /app/node_modules ./node_modules\nCOPY . .\nEXPOSE 3000\nCMD [\"node\", \"server.js\"]\n```\n\n### ベストプラクティス\n1. **軽量ベースイメージ** (alpine)\n2. **.dockerignore**でnode_modulesを除外\n3. **非rootユーザー**で実行\n4. **ヘルスチェック**を追加"
+      }
+    ]
+  },
+  {
+    "id": "chat-005",
+    "title": "データベース最適化テクニック",
+    "lastMessage": "インデックス戦略とクエリ最適化を話し合いました",
+    "timestamp": "2026-03-10T14:45:00Z",
+    "messages": [
+      {
+        "id": "msg-005-1",
+        "role": "user",
+        "content": "SQLクエリを高速化する方法を教えてください。"
+      },
+      {
+        "id": "msg-005-2",
+        "role": "assistant",
+        "content": "## SQLクエリ最適化\n\n### インデックス戦略\n```sql\n-- よく使われるカラムにインデックスを作成\nCREATE INDEX idx_users_email ON users(email);\n\n-- 複合インデックス（WHERE句の順序に合わせる）\nCREATE INDEX idx_orders_user_date ON orders(user_id, created_at);\n```\n\n### 避けるべきパターン\n- `SELECT *` → 必要なカラムのみ指定\n- `WHERE`句でのCALCULATION（インデックスが使われない）\n- N+1問題 → JOINまたはサブクエリを使用\n\n### EXPLAINを使って実行計画を確認\n```sql\nEXPLAIN ANALYZE SELECT * FROM orders WHERE user_id = 1;\n```"
+      }
+    ]
+  }
+]
