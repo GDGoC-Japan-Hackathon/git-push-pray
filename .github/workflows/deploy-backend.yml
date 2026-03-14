@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - add-vertex-ai-with-go # テスト用に一時的に追加。確認後に削除・マージしてOKです。
     paths:
       - 'backend/**'
   workflow_dispatch: # 手動実行を可能にする

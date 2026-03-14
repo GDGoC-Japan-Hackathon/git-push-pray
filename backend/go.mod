@@ -2,7 +2,10 @@ module github.com/GDGoC-Japan-Hackathon/git-push-pray/backend
 
 go 1.24.0
 
-require google.golang.org/genai v1.50.0
+require (
+	github.com/joho/godotenv v1.5.1
+	google.golang.org/genai v1.50.0
+)
 
 require (
 	cloud.google.com/go v0.123.0 // indirect
@@ -17,7 +20,6 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
 	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
-	github.com/joho/godotenv v1.5.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0 // indirect
 	go.opentelemetry.io/otel v1.40.0 // indirect

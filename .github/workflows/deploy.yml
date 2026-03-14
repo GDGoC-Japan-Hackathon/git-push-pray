@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - add-vertex-ai-with-go # テスト用に一時的に追加。確認後に削除・マージしてOKです。
   workflow_dispatch: # 手動実行を可能にする
 
 permissions:
@@ -48,7 +47,7 @@ jobs:
         run: |
           docker build \
             -t ${{ env.IMAGE }}:${{ github.sha }} \
-            --build-arg VITE_API_BASE_URL=${{ secrets.BACKEND_CLOUD_RUN_URL }} \
+            --build-arg VITE_API_BASE_URL="${{ secrets.BACKEND_CLOUD_RUN_URL }}" \
             ./frontend
 
       - name: Push image to Artifact Registry
