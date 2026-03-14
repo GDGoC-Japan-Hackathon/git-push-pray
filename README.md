@@ -144,7 +144,9 @@ terraform plan
 
 #### 4. クラウド環境への適用
 
-`terraform plan` の結果に問題がなければ、変更を適用します。
+> **通常は `main` ブランチへのマージ時に GitHub Actions が自動で `terraform apply` を実行します。** ローカルからの手動実行は緊急対応や動作確認のみを想定しています。
+
+手動で適用したい場合は、`terraform plan` の結果に問題がなければ以下を実行します。
 
 ```bash
 terraform apply
@@ -154,8 +156,17 @@ terraform apply
 
 ---
 
-📝 **注意点**
+**注意点**
 
 - Terraformの管理外で手動変更したリソース（特にIAMポリシー全体の上書きなど）は、次回の `terraform apply` でTerraformの状態に書き換わって消えてしまう可能性があります。
 - `terraform` フォルダ以下の `.tf` ファイルを変更することで、インフラ構成を追加・修正できます。
-- `.terraform.lock.hcl` はプロバイダーのバージョンを固定するためのファイルなので、Gitにコミットしてください。
+- `.terraform.lock.hcl` はプロバイダーのバージョンを固定するためのファイルです。
+
+### CI/CD による自動化（GitHub Actions）
+
+`.github/workflows/terraform.yml` により、以下が自動化されています。
+
+| イベント                            | 実行内容                                              |
+| ----------------------------------- | ----------------------------------------------------- |
+| `terraform/` 以下を変更したPRの作成 | `terraform plan` のみ（変更内容の確認・ドライラン）   |
+| `main` ブランチへのマージ           | `terraform plan` → `terraform apply`（GCPへ自動反映） |
