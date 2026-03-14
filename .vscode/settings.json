@@ -28,5 +28,6 @@
     "source.organizeImports": "always"
   },
   "typescript.updateImportsOnFileMove.enabled": "always",
-  "javascript.updateImportsOnFileMove.enabled": "always"
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "typescript.tsdk": "frontend/node_modules/typescript/lib"
 }
