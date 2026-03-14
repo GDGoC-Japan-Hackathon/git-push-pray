@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { nanoid } from 'nanoid'
 import type { ChatSession } from './types'
-import { MOCK_RESPONSES } from './constants'
+
 import { Sidebar } from './components/Sidebar'
 import { Header } from './components/Header'
 import { ChatArea } from './components/ChatArea'
@@ -91,8 +91,25 @@ export default function App() {
     ))
 
     await new Promise(r => setTimeout(r, 400))
-    const response = MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)]
-    streamResponse(sessionId, response)
+    
+    // バックエンドAPIを呼び出す
+    try {
+      const resp = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+      })
+      if (!resp.ok) {
+        throw new Error(`API error: ${resp.status}`)
+      }
+      const data = await resp.json()
+      streamResponse(sessionId, data.reply)
+    } catch (err) {
+      console.error('Failed to fetch from backend:', err)
+      // エラー時は MOCK_RESPONSES へのフォールバック、またはエラーメッセージ表示
+      const fallbackResponse = "申し訳ありません。バックエンドへの接続に失敗しました。ローカルでGoサーバーが起動しているか確認してください。"
+      streamResponse(sessionId, fallbackResponse)
+    }
   }, [isStreaming, activeSessionId, streamResponse])
 
   return (
