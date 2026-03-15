@@ -55,35 +55,32 @@ chmod +x cloud-sql-proxy
 新しいターミナルタブを開き、以下のコマンドを実行したままにしてください。（バックグラウンドで動作し続けます）
 
 ```bash
-./cloud-sql-proxy git-push-pray:asia-northeast1:git-push-pray-db
+make database
 ```
 
 これで `localhost:5432` 経由でGCPのデータベースにつながります。
 
 ### 4. バックエンド (Go) の起動
 
+`.env` ファイルを作成してください（存在しない場合）:
+
+```
+GOOGLE_CLOUD_PROJECT=git-push-pray
+GOOGLE_CLOUD_LOCATION=asia-northeast1
+GOOGLE_GENAI_USE_VERTEXAI=TRUE
+DATABASE_URL=postgres://appuser:【ここを置き換える】@localhost:5432/git-push-pray?sslmode=disable
+```
+
 ```bash
-# バックエンドのディレクトリへ移動
-cd backend/
-
-# 依存パッケージのインストール
-go mod download
-
-# .env ファイルの作成 (存在しない場合)
-# .env の内容は以下のように設定してください。
-# GOOGLE_CLOUD_PROJECT=git-push-pray
-# GOOGLE_CLOUD_LOCATION=asia-northeast1
-# GOOGLE_GENAI_USE_VERTEXAI=TRUE
-#
-# # DB接続用の環境変数 (ローカル用 / Cloud SQL Auth Proxy 経由)
-# DATABASE_URL=postgres://appuser:【ここを置き換える】@localhost:5432/git-push-pray?sslmode=disable
+# 依存パッケージのインストール（初回のみ）
+cd backend && go mod download
 
 # アプリケーションの起動
-go run .
+make back
 ```
 
 > [!NOTE]
-> `backend/main.go` 内で `godotenv` を使用しているため、自動的に `.env` が読み込まれます。
+> `godotenv` により、`backend/.env` が自動的に読み込まれます。
 
 起動に成功すると `Backend server listening on port 8081` と表示されます。
 
@@ -92,14 +89,11 @@ go run .
 新しいターミナルタブを開き、フロントエンドを起動します。
 
 ```bash
-# フロントエンドのディレクトリへ移動
-cd frontend/
-
-# 依存パッケージのインストール
-npm install
+# 依存パッケージのインストール（初回のみ）
+cd frontend && npm install
 
 # 開発サーバーの起動
-npm run dev
+make front
 ```
 
 ブラウザで `http://localhost:5173` にアクセスすると、アプリケーションを利用できます。
@@ -121,8 +115,7 @@ npm run dev
    `backend` ディレクトリで、`.env` を読み込ませてサーバーを立ち上げます。
 
    ```bash
-   cd backend
-   export $(cat .env | xargs) && go run main.go
+   make back
    ```
 
 2. **curlでAPIを叩く**
