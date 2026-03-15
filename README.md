@@ -125,6 +125,12 @@ gcloud config set project git-push-pray
 ```bash
 cd terraform/
 
+# 【初回のみ】Terraformのリモートステート保存用GCSバケットを作成する
+# すでに存在する場合はスキップしてください
+gcloud storage buckets create gs://terraform-state-git-push-pray \
+  --location=asia-northeast1 \
+  --project=git-push-pray
+
 # 初回のみ（または新しいプロバイダを追加した際）実行
 terraform init
 
