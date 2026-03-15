@@ -33,7 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const error = err as FirebaseError;
       console.error("Login failed", error);
       if (error.code === 'auth/unauthorized-domain') {
-        alert("This domain is not authorized in Firebase/Identity Platform console. Please add 'localhost' to Authorized domains.");
+        alert("このドメインからのログインは許可されていません。Firebaseコンソールの「承認済みドメイン」に、現在のドメインを追加してください。");
       } else if (error.code === 'auth/operation-not-allowed') {
         alert("Google sign-in is not enabled. Please enable it in the Firebase/Identity Platform console.");
       } else {
