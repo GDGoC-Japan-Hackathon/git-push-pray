@@ -187,7 +187,7 @@ EOF
 実際にクラウド環境に変更を加える前に、どのようなリソースが変更・追加・削除されるかを確認します。
 
 ```bash
-terraform plan -var="project_id=git-push-pray" -var="region=asia-northeast1"
+terraform plan -var="project_id=git-push-pray" -var="region=asia-northeast1" -var="db_password=**********"
 ```
 
 > ※ 出力結果を確認し、意図しないリソースの削除などが行われないかチェックしてください。
