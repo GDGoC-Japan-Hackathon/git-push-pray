@@ -90,11 +90,13 @@ export default function App() {
         : s
     ))
 
-    await new Promise(r => setTimeout(r, 400))
+    // await new Promise(r => setTimeout(r, 400)) // 人工的な遅延を削除
     
     // バックエンドAPIを呼び出す
     try {
-      const resp = await fetch('/api/chat', {
+      const rawApiBase = import.meta.env.VITE_API_BASE_URL ?? ''
+      const apiBase = rawApiBase.replace(/\/+$/, '')
+      const resp = await fetch(`${apiBase}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text })

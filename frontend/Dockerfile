@@ -15,9 +15,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Viteはビルド時に環境変数を埋め込む（必要に応じてARG/ENVを追加）
-# ARG VITE_EXAMPLE_KEY
-# ENV VITE_EXAMPLE_KEY=$VITE_EXAMPLE_KEY
+# Viteはビルド時に環境変数を静的に埋め込む
+# 本番バックエンドのCloud Run URL（例: https://git-push-pray-backend-xxx.run.app）
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 RUN npm run build
 

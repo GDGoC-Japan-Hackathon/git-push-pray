@@ -7,6 +7,10 @@ import (
 	"net/http"
 	"os"
 
+	"strings"
+	"time"
+
+	"github.com/joho/godotenv"
 	"google.golang.org/genai"
 )
 
@@ -34,14 +38,31 @@ func initClient() error {
 	return nil
 }
 
-func enableCORS(w *http.ResponseWriter) {
-	(*w).Header().Set("Access-Control-Allow-Origin", "*")
-	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+func enableCORS(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
+	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
+
+	// 開発環境 (localhost) や特定のオリジンを許可
+	// ALLOWED_ORIGINS=https://your-frontend.run.app,http://localhost:5173 などの形式を想定
+	if origin != "" && allowedOriginsEnv != "" {
+		for _, ao := range strings.Split(allowedOriginsEnv, ",") {
+			if strings.TrimSpace(ao) == origin {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Add("Vary", "Origin")
+				break
+			}
+		}
+	} else if allowedOriginsEnv == "" {
+		// 未設定の場合は開発の利便性のために全許可（本番では設定を推奨）
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+	}
+
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 }
 
 func chatHandler(w http.ResponseWriter, r *http.Request) {
-	enableCORS(&w)
+	enableCORS(w, r)
 	if r.Method == "OPTIONS" {
 		w.WriteHeader(http.StatusOK)
 		return
@@ -61,7 +82,7 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Received message: %s", req.Message)
 
 	// プロンプトの構築
-	systemInstruction := "あなたはプログラミングや開発に関する質問に答える、親切なAIアシスタントです。簡潔に、しかし詳細に回答してください。マークダウン形式で回答してください。"
+	systemInstruction := "あなたは、ユーザーが教えようとしているトピックについて「全く事前の知識を持たない、完全な初心者」です。ユーザーのことを「先生」などのように慕い、純粋な好奇心を持って教えを請う生徒として振る舞ってください。年齢設定は特にありませんが、丁寧で素直な言葉遣いを心がけてください（「～ですね！」「～なんですね！」など）。"
 	fullPrompt := systemInstruction + "\n\nユーザーからの質問:\n" + req.Message
 
 	// Gemini API (Vertex AI経由) の呼び出し
@@ -79,7 +100,7 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Printf("Gemini execution error: %v", err)
-		http.Error(w, "Failed to generate response: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to generate response", http.StatusInternalServerError)
 		return
 	}
 
@@ -94,6 +115,11 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// .envファイルから環境変数を読み込む
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, relying on system environment variables")
+	}
+
 	log.Println("Initializing GenAI client for Vertex AI...")
 	if err := initClient(); err != nil {
 		log.Fatalf("Fatal error initializing client: %v", err)
@@ -107,8 +133,16 @@ func main() {
 		port = "8081"
 	}
 
+	srv := &http.Server{
+		Addr:              ":" + port,
+		ReadTimeout:       10 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      60 * time.Second, // Gemini response could take time
+		IdleTimeout:       120 * time.Second,
+	}
+
 	log.Printf("Backend server listening on port %s", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }

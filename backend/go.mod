@@ -1,8 +1,11 @@
 module github.com/GDGoC-Japan-Hackathon/git-push-pray/backend
 
-go 1.25.0
+go 1.24.0
 
-require google.golang.org/genai v1.50.0
+require (
+	github.com/joho/godotenv v1.5.1
+	google.golang.org/genai v1.50.0
+)
 
 require (
 	cloud.google.com/go v0.123.0 // indirect
