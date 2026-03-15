@@ -11,6 +11,13 @@ resource "google_project_iam_member" "backend_vertex_ai_user" {
   member  = "serviceAccount:${google_service_account.backend_sa.email}"
 }
 
+# Grant Firebase Auth Viewer to Backend Service Account (for ID Token verification / user discovery if needed)
+resource "google_project_iam_member" "backend_firebase_auth" {
+  project = var.project_id
+  role    = "roles/firebaseauth.viewer"
+  member  = "serviceAccount:${google_service_account.backend_sa.email}"
+}
+
 # -------------------------------------------------------
 # IAM roles for GitHub Actions deployer service account
 # NOTE: These are "bootstrap" permissions required for Terraform CI/CD to run.
@@ -42,5 +49,11 @@ resource "google_project_iam_member" "gha_artifactregistry_admin" {
 resource "google_project_iam_member" "gha_service_account_admin" {
   project = var.project_id
   role    = "roles/iam.serviceAccountAdmin"
+  member  = local.github_actions_sa
+}
+
+resource "google_project_iam_member" "gha_cloud_run_admin" {
+  project = var.project_id
+  role    = "roles/run.admin"
   member  = local.github_actions_sa
 }
