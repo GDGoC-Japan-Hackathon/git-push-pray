@@ -55,14 +55,9 @@ jobs:
         run: docker push ${{ env.IMAGE }}:${{ github.sha }}
 
       - name: Deploy to Cloud Run
-        # インフラ設定(ポート、認証、環境変数等)はTerraformで管理。ここではイメージ更新のみ。
+        # インフラ設定（ポート、認証、環境変数、Cloud SQL接続等）はTerraformで管理。ここではイメージ更新のみ。
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image ${{ env.IMAGE }}:${{ github.sha }} \
             --region ${{ env.REGION }} \
-            --platform managed \
-            --allow-unauthenticated \
-            --port 8081 \
-            --add-cloudsql-instances ${{ secrets.GCP_PROJECT_ID }}:${{ env.REGION }}:git-push-pray-db \
-            --set-env-vars GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }},GOOGLE_CLOUD_LOCATION=asia-northeast1,GOOGLE_GENAI_USE_VERTEXAI=TRUE,DATABASE_URL=host=/cloudsql/${{ secrets.GCP_PROJECT_ID }}:${{ env.REGION }}:git-push-pray-db user=appuser password=${{ secrets.DB_PASSWORD }} dbname=git-push-pray \
             --quiet

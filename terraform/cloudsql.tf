@@ -33,19 +33,3 @@ resource "google_sql_user" "app_user" {
   instance = google_sql_database_instance.main.name
   password = var.db_password
 }
-
-# Secret ManagerにDBパスワードを保存
-resource "google_secret_manager_secret" "db_password" {
-  secret_id = "db-password"
-
-  replication {
-    auto {}
-  }
-
-  depends_on = [google_project_service.enabled_apis]
-}
-
-resource "google_secret_manager_secret_version" "db_password" {
-  secret      = google_secret_manager_secret.db_password.id
-  secret_data = var.db_password
-}

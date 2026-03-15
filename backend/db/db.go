@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -14,7 +15,7 @@ var DB *gorm.DB
 func InitDB() error {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		log.Fatal("DATABASE_URL is not set in the environment")
+		return fmt.Errorf("DATABASE_URL is not set in the environment")
 	}
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})

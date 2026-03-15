@@ -70,6 +70,16 @@ resource "google_cloud_run_v2_service" "backend" {
     # Assume the backend uses a dedicated service account so it has permissions for Vertex AI
     service_account = google_service_account.backend_sa.email
 
+    # Cloud SQL 接続設定
+    volumes {
+      name = "cloudsql"
+      cloud_sql_instance {
+        instances = [
+          "${var.project_id}:${var.region}:git-push-pray-db"
+        ]
+      }
+    }
+
     containers {
       # Dummy image for initial creation. Will be overwritten by CI/CD.
       image = "us-docker.pkg.dev/cloudrun/container/hello"
@@ -89,6 +99,16 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "GOOGLE_GENAI_USE_VERTEXAI"
         value = "TRUE"
       }
+      # Cloud SQL 接続用環境変数 (URL形式DSNでスペースなし)
+      env {
+        name  = "DATABASE_URL"
+        value = "postgres://appuser:${var.db_password}@/git-push-pray?host=/cloudsql/${var.project_id}:${var.region}:git-push-pray-db"
+      }
+
+      volume_mounts {
+        name       = "cloudsql"
+        mount_path = "/cloudsql"
+      }
     }
   }
 
@@ -96,11 +116,11 @@ resource "google_cloud_run_v2_service" "backend" {
     ignore_changes = [
       template[0].containers[0].image,
       client,
-      client_version
+      client_version,
     ]
   }
 
-  depends_on = [google_project_service.enabled_apis, google_service_account.backend_sa]
+  depends_on = [google_project_service.enabled_apis, google_service_account.backend_sa, google_sql_database_instance.main]
 }
 
 # Allow unauthenticated access to the Backend (since Frontend calls it directly from browser)

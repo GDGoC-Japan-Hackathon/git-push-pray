@@ -75,8 +75,8 @@ go mod download
 # GOOGLE_CLOUD_LOCATION=asia-northeast1
 # GOOGLE_GENAI_USE_VERTEXAI=TRUE
 #
-# # DB接続用の環境変数 (ローカル用)
-# DATABASE_URL=host=localhost port=5432 user=appuser password=【ここを置き換える】 dbname=git-push-pray sslmode=disable
+# # DB接続用の環境変数 (ローカル用 / Cloud SQL Auth Proxy 経由)
+# DATABASE_URL=postgres://appuser:【ここを置き換える】@localhost:5432/git-push-pray?sslmode=disable
 
 # アプリケーションの起動
 go run main.go
