@@ -25,6 +25,13 @@ resource "google_project_iam_member" "backend_secretmanager_accessor" {
   member  = "serviceAccount:${google_service_account.backend_sa.email}"
 }
 
+# Grant Firebase Auth Viewer to Backend Service Account (for ID Token verification / user discovery if needed)
+resource "google_project_iam_member" "backend_firebase_auth" {
+  project = var.project_id
+  role    = "roles/firebaseauth.viewer"
+  member  = "serviceAccount:${google_service_account.backend_sa.email}"
+}
+
 # -------------------------------------------------------
 # IAM roles for GitHub Actions deployer service account
 # NOTE: These are "bootstrap" permissions required for Terraform CI/CD to run.
@@ -78,9 +85,3 @@ resource "google_project_iam_member" "gha_cloud_run_admin" {
   member  = local.github_actions_sa
 }
 
-# Firebase Auth の読み取り権限（Identity Platform 連携用）
-resource "google_project_iam_member" "backend_firebaseauth_viewer" {
-  project = var.project_id
-  role    = "roles/firebaseauth.viewer"
-  member  = "serviceAccount:${google_service_account.backend_sa.email}"
-}

@@ -8,7 +8,7 @@ import { BotAvatar } from './BotAvatar'
 interface Props {
   session: ChatSession | null
   isStreaming: boolean
-  onSuggestionClick: (text: string) => void
+  onSuggestionClick?: (text: string) => void
 }
 
 export function ChatArea({ session, isStreaming, onSuggestionClick }: Props) {
@@ -39,7 +39,7 @@ export function ChatArea({ session, isStreaming, onSuggestionClick }: Props) {
 }
 
 interface EmptyStateProps {
-  onSuggestionClick: (text: string) => void
+  onSuggestionClick?: (text: string) => void
 }
 
 function EmptyState({ onSuggestionClick }: EmptyStateProps) {
@@ -54,7 +54,7 @@ function EmptyState({ onSuggestionClick }: EmptyStateProps) {
         {SUGGESTIONS.map(suggestion => (
           <button
             key={suggestion}
-            onClick={() => onSuggestionClick(suggestion)}
+            onClick={() => onSuggestionClick?.(suggestion)}
             className="text-xs text-left px-3 py-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
           >
             {suggestion}

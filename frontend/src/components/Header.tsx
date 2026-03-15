@@ -1,5 +1,6 @@
 import { MenuIcon } from 'lucide-react'
 import { BotAvatar } from './BotAvatar'
+import { LoginButton } from './auth/LoginButton'
 
 interface Props {
   title: string | null
@@ -18,11 +19,14 @@ export function Header({ title, onMenuClick }: Props) {
       </button>
       <div className="flex items-center gap-2">
         <BotAvatar />
-        <span className="font-semibold text-gray-800 text-sm">AI アシスタント</span>
+        <span className="font-semibold text-gray-800 text-sm italic">Pray Log</span>
       </div>
       {title && (
-        <span className="text-sm text-gray-400 truncate ml-2">{title}</span>
+        <span className="text-sm text-gray-400 truncate ml-2 flex-1">{title}</span>
       )}
+      <div className="ml-auto">
+        <LoginButton />
+      </div>
     </header>
   )
 }
