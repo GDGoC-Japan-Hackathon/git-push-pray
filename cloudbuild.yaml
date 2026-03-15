@@ -14,6 +14,7 @@ steps:
       - "asia-northeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/git-push-pray-frontend:$COMMIT_SHA"
 
   # Cloud Runにデプロイ
+  # インフラ設定(ポート、認証等)はTerraformで管理。ここではイメージ更新のみ。
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
     entrypoint: gcloud
     args:
@@ -24,10 +25,7 @@ steps:
       - "asia-northeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/git-push-pray-frontend:$COMMIT_SHA"
       - "--region"
       - "asia-northeast1"
-      - "--platform"
-      - "managed"
-      - "--no-allow-unauthenticated" # 認証設定はTerraform (IAM) で管理するため、ここでは変更しない
-      - "--quiet" # 非対話モード（CI環境でプロンプトが出ないようにする）
+      - "--quiet"
 
 images:
   - "asia-northeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/git-push-pray-frontend:$COMMIT_SHA"

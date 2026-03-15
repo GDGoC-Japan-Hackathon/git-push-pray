@@ -96,7 +96,11 @@ export default function App() {
     
     // バックエンドAPIを呼び出す
     try {
-      const token = await user?.getIdToken()
+      const token = user ? await user.getIdToken() : null
+      if (!token) {
+        setIsStreaming(false)
+        return
+      }
       const rawApiBase = import.meta.env.VITE_API_BASE_URL ?? ''
       const apiBase = rawApiBase.replace(/\/+$/, '')
       const resp = await fetch(`${apiBase}/api/chat`, {
@@ -118,7 +122,7 @@ export default function App() {
       const fallbackResponse = "申し訳ありません。バックエンドへの接続に失敗しました。ローカルでGoサーバーが起動しているか確認してください。"
       streamResponse(sessionId, fallbackResponse)
     }
-  }, [isStreaming, activeSessionId, streamResponse])
+  }, [isStreaming, activeSessionId, streamResponse, user])
 
   return (
     <div className="flex h-screen bg-white overflow-hidden">

@@ -13,7 +13,6 @@ import (
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/auth"
 	"github.com/joho/godotenv"
-	"google.golang.org/api/option"
 	"google.golang.org/genai"
 )
 
