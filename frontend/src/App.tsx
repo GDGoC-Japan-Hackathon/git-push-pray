@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { nanoid } from 'nanoid'
 import type { ChatSession } from './types'
 
@@ -7,16 +7,48 @@ import { Header } from './components/Header'
 import { ChatArea } from './components/ChatArea'
 import { PromptInput } from './components/PromptInput'
 import { useAuth } from './contexts/AuthContext'
-import chatHistoryData from './data/chatHistory.json'
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [sessions, setSessions] = useState<ChatSession[]>(chatHistoryData as ChatSession[])
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(sessions[0]?.id ?? null)
+  const [sessions, setSessions] = useState<ChatSession[]>([])
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [isStreaming, setIsStreaming] = useState(false)
   const { user, loading } = useAuth()
 
   const activeSession = sessions.find(s => s.id === activeSessionId) ?? null
+
+  useEffect(() => {
+    if (!user) {
+      setSessions([])
+      setActiveSessionId(null)
+      return
+    }
+    const fetchSessions = async () => {
+      try {
+        const token = await user.getIdToken()
+        const rawApiBase = import.meta.env.VITE_API_BASE_URL ?? ''
+        const apiBase = rawApiBase.replace(/\/+$/, '')
+        const resp = await fetch(
+          `${apiBase}/api/sessions?user_id=${encodeURIComponent(user.uid)}`,
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        )
+        if (!resp.ok) return
+        const data = await resp.json()
+        const fetched: ChatSession[] = data.sessions.map((s: { conversation_id: string; title: string; last_message: string }) => ({
+          id: s.conversation_id,
+          title: s.title,
+          lastMessage: s.last_message,
+          timestamp: '',
+          messages: [],
+        }))
+        setSessions(fetched)
+        if (fetched.length > 0) setActiveSessionId(fetched[0].id)
+      } catch (err) {
+        console.error('Failed to fetch sessions:', err)
+      }
+    }
+    fetchSessions()
+  }, [user])
 
   const handleNewChat = useCallback(() => {
     const session: ChatSession = {
@@ -31,10 +63,33 @@ export default function App() {
     setSidebarOpen(false)
   }, [])
 
-  const handleSelectSession = useCallback((id: string) => {
+  const fetchHistory = useCallback(async (sessionId: string) => {
+    if (!user) return
+    try {
+      const token = await user.getIdToken()
+      const rawApiBase = import.meta.env.VITE_API_BASE_URL ?? ''
+      const apiBase = rawApiBase.replace(/\/+$/, '')
+      const resp = await fetch(
+        `${apiBase}/api/history?user_id=${encodeURIComponent(user.uid)}&conversation_id=${encodeURIComponent(sessionId)}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      )
+      if (!resp.ok) return
+      const data = await resp.json()
+      setSessions(prev => prev.map(s =>
+        s.id === sessionId
+          ? { ...s, messages: data.messages.map((m: { role: string; content: string }) => ({ id: nanoid(), role: m.role as 'user' | 'assistant', content: m.content })) }
+          : s
+      ))
+    } catch (err) {
+      console.error('Failed to fetch history:', err)
+    }
+  }, [user])
+
+  const handleSelectSession = useCallback(async (id: string) => {
     setActiveSessionId(id)
     setSidebarOpen(false)
-  }, [])
+    await fetchHistory(id)
+  }, [fetchHistory])
 
   const streamResponse = useCallback(async (sessionId: string, response: string) => {
     const msgId = nanoid()
@@ -97,7 +152,7 @@ export default function App() {
     // バックエンドAPIを呼び出す
     try {
       const token = user ? await user.getIdToken() : null
-      if (!token) {
+      if (!token || !user) {
         setIsStreaming(false)
         return
       }
@@ -109,7 +164,7 @@ export default function App() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ message: text })
+        body: JSON.stringify({ user_id: user.uid, conversation_id: sessionId, message: text })
       })
       if (!resp.ok) {
         throw new Error(`API error: ${resp.status}`)

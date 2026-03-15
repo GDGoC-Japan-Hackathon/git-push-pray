@@ -79,7 +79,7 @@ go mod download
 # DATABASE_URL=postgres://appuser:【ここを置き換える】@localhost:5432/git-push-pray?sslmode=disable
 
 # アプリケーションの起動
-go run main.go
+go run .
 ```
 
 > [!NOTE]
