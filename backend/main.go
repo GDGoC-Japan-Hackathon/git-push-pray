@@ -10,7 +10,10 @@ import (
 	"strings"
 	"time"
 
+	firebase "firebase.google.com/go/v4"
+	"firebase.google.com/go/v4/auth"
 	"github.com/joho/godotenv"
+	"google.golang.org/api/option"
 	"google.golang.org/genai"
 )
 
@@ -26,16 +29,76 @@ type ChatResponse struct {
 
 // ChatAgent のようにグローバル変数へ持たせるのではなく、ハンドラで都度呼び出す
 // APIキーを使わず Vertex AI (ADC) で認証する
-var genaiClient *genai.Client
+var (
+	genaiClient *genai.Client
+	authClient  *auth.Client
+)
 
 func initClient() error {
 	ctx := context.Background()
+
+	// Initialize Gemini Client
 	client, err := genai.NewClient(ctx, nil)
 	if err != nil {
 		return err
 	}
 	genaiClient = client
+
+	// Initialize Firebase Admin SDK
+	// Use ADC (Application Default Credentials) in Cloud Run
+	// Local development might need a service account key file
+	var app *firebase.App
+	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
+
+	if projectID == "" {
+		log.Println("GOOGLE_CLOUD_PROJECT is not set. Trying to initialize without specific project ID.")
+		app, err = firebase.NewApp(ctx, nil)
+	} else {
+		config := &firebase.Config{ProjectID: projectID}
+		app, err = firebase.NewApp(ctx, config)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	ac, err := app.Auth(ctx)
+	if err != nil {
+		return err
+	}
+	authClient = ac
+
 	return nil
+}
+
+// withAuth is a middleware to verify Firebase ID Token
+func withAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		enableCORS(w, r)
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			http.Error(w, "Unauthorized: Missing or invalid Authorization header", http.StatusUnauthorized)
+			return
+		}
+
+		idToken := strings.TrimPrefix(authHeader, "Bearer ")
+		token, err := authClient.VerifyIDToken(r.Context(), idToken)
+		if err != nil {
+			log.Printf("Token verification failed: %v", err)
+			http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		// Store UID in request context if needed
+		log.Printf("Request from verified user: %s", token.UID)
+
+		next.ServeHTTP(w, r)
+	}
 }
 
 func enableCORS(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +125,7 @@ func enableCORS(w http.ResponseWriter, r *http.Request) {
 }
 
 func chatHandler(w http.ResponseWriter, r *http.Request) {
-	enableCORS(w, r)
+	// CORS handling is now in withAuth middleware for this specific route
 	if r.Method == "OPTIONS" {
 		w.WriteHeader(http.StatusOK)
 		return
@@ -126,7 +189,7 @@ func main() {
 	}
 	log.Println("Client initialized successfully.")
 
-	http.HandleFunc("/api/chat", chatHandler)
+	http.HandleFunc("/api/chat", withAuth(chatHandler))
 
 	port := os.Getenv("PORT")
 	if port == "" {
