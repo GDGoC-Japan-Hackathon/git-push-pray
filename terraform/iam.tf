@@ -11,6 +11,20 @@ resource "google_project_iam_member" "backend_vertex_ai_user" {
   member  = "serviceAccount:${google_service_account.backend_sa.email}"
 }
 
+# Grant Cloud SQL Client to Backend Service Account
+resource "google_project_iam_member" "backend_cloudsql_client" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.backend_sa.email}"
+}
+
+# Grant Secret Manager Accessor to Backend Service Account (for DB password)
+resource "google_project_iam_member" "backend_secretmanager_accessor" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.backend_sa.email}"
+}
+
 # Grant Firebase Auth Viewer to Backend Service Account (for ID Token verification / user discovery if needed)
 resource "google_project_iam_member" "backend_firebase_auth" {
   project = var.project_id
@@ -52,8 +66,22 @@ resource "google_project_iam_member" "gha_service_account_admin" {
   member  = local.github_actions_sa
 }
 
+resource "google_project_iam_member" "gha_cloudsql_admin" {
+  project = var.project_id
+  role    = "roles/cloudsql.admin"
+  member  = local.github_actions_sa
+}
+
+resource "google_project_iam_member" "gha_secretmanager_admin" {
+  project = var.project_id
+  role    = "roles/secretmanager.admin"
+  member  = local.github_actions_sa
+}
+
+# Cloud Run へのデプロイ権限（GitHub Actions から gcloud run deploy を実行するために必要）
 resource "google_project_iam_member" "gha_cloud_run_admin" {
   project = var.project_id
   role    = "roles/run.admin"
   member  = local.github_actions_sa
 }
+

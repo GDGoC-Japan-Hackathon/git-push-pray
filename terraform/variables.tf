@@ -20,3 +20,9 @@ variable "backend_service_name" {
   type        = string
   default     = "git-push-pray-backend"
 }
+
+variable "db_password" {
+  description = "Password for the Cloud SQL app user"
+  type        = string
+  sensitive   = true
+}
