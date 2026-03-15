@@ -70,3 +70,17 @@ resource "google_project_iam_member" "gha_secretmanager_admin" {
   role    = "roles/secretmanager.admin"
   member  = local.github_actions_sa
 }
+
+# Cloud Run へのデプロイ権限（GitHub Actions から gcloud run deploy を実行するために必要）
+resource "google_project_iam_member" "gha_cloud_run_admin" {
+  project = var.project_id
+  role    = "roles/run.admin"
+  member  = local.github_actions_sa
+}
+
+# Firebase Auth の読み取り権限（Identity Platform 連携用）
+resource "google_project_iam_member" "backend_firebaseauth_viewer" {
+  project = var.project_id
+  role    = "roles/firebaseauth.viewer"
+  member  = "serviceAccount:${google_service_account.backend_sa.email}"
+}

@@ -63,6 +63,7 @@ jobs:
           terraform plan \
             -var="project_id=${{ env.PROJECT_ID }}" \
             -var="region=${{ env.REGION }}" \
+            -var="db_password=${{ secrets.DB_PASSWORD }}" \
             -out=tfplan
 
       # mainブランチへのpush（マージ完了）時のみapplyを実行
