@@ -22,7 +22,45 @@ gcloud auth application-default login
 
 ※ブラウザが開いて Google アカウントへのログインを求められます。
 
-### 3. バックエンド (Go) の起動
+### 3. Cloud SQL Auth Proxy の起動 (ローカルDB接続用)
+
+ローカル環境からGCP上のCloud SQLへ接続するために、[Cloud SQL Auth Proxy](https://cloud.google.com/sql/docs/postgres/sql-proxy) を利用します。
+
+初回のみ以下を実施。
+
+**インストール (Mac の場合):**
+
+```bash
+# Intel Mac
+curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.3/cloud-sql-proxy.darwin.amd64
+# Apple Silicon (M1/M2/M3) Mac
+curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.3/cloud-sql-proxy.darwin.arm64
+chmod +x cloud-sql-proxy
+```
+
+**インストール (Linux の場合):**
+
+```bash
+# AMD64 (x86_64)
+curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.3/cloud-sql-proxy.linux.amd64
+# ARM64
+curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.3/cloud-sql-proxy.linux.arm64
+chmod +x cloud-sql-proxy
+```
+
+**インストール (Windows の場合):**
+[公式のダウンロードリンク (x64用)](https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.3/cloud-sql-proxy.x64.exe) から `cloud-sql-proxy.exe` をダウンロードし、作業フォルダ（`terraform/` など）に配置してください。
+
+**起動:**
+新しいターミナルタブを開き、以下のコマンドを実行したままにしてください。（バックグラウンドで動作し続けます）
+
+```bash
+./cloud-sql-proxy git-push-pray:asia-northeast1:git-push-pray-db
+```
+
+これで `localhost:5432` 経由でGCPのデータベースにつながります。
+
+### 4. バックエンド (Go) の起動
 
 ```bash
 # バックエンドのディレクトリへ移動
@@ -36,6 +74,9 @@ go mod download
 # GOOGLE_CLOUD_PROJECT=git-push-pray
 # GOOGLE_CLOUD_LOCATION=asia-northeast1
 # GOOGLE_GENAI_USE_VERTEXAI=TRUE
+#
+# # DB接続用の環境変数 (ローカル用)
+# DATABASE_URL=host=localhost port=5432 user=appuser password=【ここを置き換える】 dbname=git-push-pray sslmode=disable
 
 # アプリケーションの起動
 go run main.go
@@ -46,7 +87,7 @@ go run main.go
 
 起動に成功すると `Backend server listening on port 8081` と表示されます。
 
-### 4. フロントエンド (React) の起動
+### 5. フロントエンド (React) の起動
 
 新しいターミナルタブを開き、フロントエンドを起動します。
 
@@ -64,9 +105,9 @@ npm run dev
 ブラウザで `http://localhost:5173` にアクセスすると、アプリケーションを利用できます。
 フロントエンドからのAPIリクエスト (`/api/*`) は、Vite のプロキシ設定によって自動的にバックエンド (`http://localhost:8081`) へ転送されます。
 
-### 5. ローカルでの動作確認
+### 6. ローカルでの動作確認
 
-1. フロントエンドとバックエンドの両方が起動していることを確認します。
+1. Cloud SQL Auth Proxy, バックエンド, フロントエンドの3つが起動していることを確認します。
 2. ブラウザで `http://localhost:5173` を開きます。
 3. チャットの入力欄からメッセージ（例: `「ReactのHooksについて教えて」`）を送信します。
 4. 数秒待って、Vertex AI (Gemini) からの回答が返ってくれば成功です！

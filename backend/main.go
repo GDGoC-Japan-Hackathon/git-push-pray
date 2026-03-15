@@ -12,6 +12,7 @@ import (
 
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/auth"
+	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/db"
 	"github.com/joho/godotenv"
 	"google.golang.org/genai"
 )
@@ -187,6 +188,11 @@ func main() {
 		log.Fatalf("Fatal error initializing client: %v", err)
 	}
 	log.Println("Client initialized successfully.")
+
+	log.Println("Initializing database connection...")
+	if err := db.InitDB(); err != nil {
+		log.Fatalf("Fatal error initializing database: %v", err)
+	}
 
 	http.HandleFunc("/api/chat", withAuth(chatHandler))
 
