@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feat/add-identity-platform-login
   workflow_dispatch: # 手動実行を可能にする
 
 permissions:
@@ -48,6 +49,12 @@ jobs:
           docker build \
             -t ${{ env.IMAGE }}:${{ github.sha }} \
             --build-arg VITE_API_BASE_URL="${{ secrets.BACKEND_CLOUD_RUN_URL }}" \
+            --build-arg VITE_FIREBASE_API_KEY="${{ secrets.FIREBASE_API_KEY }}" \
+            --build-arg VITE_FIREBASE_AUTH_DOMAIN="${{ secrets.FIREBASE_AUTH_DOMAIN }}" \
+            --build-arg VITE_FIREBASE_PROJECT_ID="${{ secrets.FIREBASE_PROJECT_ID }}" \
+            --build-arg VITE_FIREBASE_STORAGE_BUCKET="${{ secrets.FIREBASE_STORAGE_BUCKET }}" \
+            --build-arg VITE_FIREBASE_MESSAGING_SENDER_ID="${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}" \
+            --build-arg VITE_FIREBASE_APP_ID="${{ secrets.FIREBASE_APP_ID }}" \
             ./frontend
 
       - name: Push image to Artifact Registry

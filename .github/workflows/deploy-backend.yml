@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feat/add-identity-platform-login
     paths:
       - 'backend/**'
   workflow_dispatch: # 手動実行を可能にする
