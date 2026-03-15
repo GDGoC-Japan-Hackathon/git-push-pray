@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/repository"
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/handler"
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/middleware"
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/service"
@@ -23,6 +24,11 @@ func main() {
 		log.Fatalf("Fatal error initializing service: %v", err)
 	}
 	log.Println("Client initialized successfully.")
+
+	log.Println("Initializing database connection...")
+	if err := repository.InitDB(); err != nil {
+		log.Fatalf("Fatal error initializing database: %v", err)
+	}
 
 	h := handler.New(svc)
 
