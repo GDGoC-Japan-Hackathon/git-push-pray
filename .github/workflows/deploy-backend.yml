@@ -64,5 +64,5 @@ jobs:
             --allow-unauthenticated \
             --port 8081 \
             --add-cloudsql-instances ${{ secrets.GCP_PROJECT_ID }}:${{ env.REGION }}:git-push-pray-db \
-            --set-env-vars GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }},GOOGLE_CLOUD_LOCATION=asia-northeast1,GOOGLE_GENAI_USE_VERTEXAI=TRUE,DATABASE_URL=host=/cloudsql/${{ secrets.GCP_PROJECT_ID }}:${{ env.REGION }}:git-push-pray-db user=appuser password=${{ secrets.DB_PASSWORD }} dbname=gitpushpray \
+            --set-env-vars GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }},GOOGLE_CLOUD_LOCATION=asia-northeast1,GOOGLE_GENAI_USE_VERTEXAI=TRUE,DATABASE_URL=host=/cloudsql/${{ secrets.GCP_PROJECT_ID }}:${{ env.REGION }}:git-push-pray-db user=appuser password=${{ secrets.DB_PASSWORD }} dbname=git-push-pray \
             --quiet

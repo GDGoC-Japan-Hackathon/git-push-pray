@@ -23,7 +23,7 @@ resource "google_sql_database_instance" "main" {
 
 # データベース
 resource "google_sql_database" "app_db" {
-  name     = "gitpushpray"
+  name     = "git-push-pray"
   instance = google_sql_database_instance.main.name
 }
 
