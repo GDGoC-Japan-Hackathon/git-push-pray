@@ -6,6 +6,8 @@ resource "google_project_service" "enabled_apis" {
     "run.googleapis.com",
     "artifactregistry.googleapis.com",
     "aiplatform.googleapis.com",
+    "sqladmin.googleapis.com",
+    "secretmanager.googleapis.com",
   ])
   service            = each.key
   disable_on_destroy = false
