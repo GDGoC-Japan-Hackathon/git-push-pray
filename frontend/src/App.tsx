@@ -6,6 +6,7 @@ import { Sidebar } from './components/Sidebar'
 import { Header } from './components/Header'
 import { ChatArea } from './components/ChatArea'
 import { PromptInput } from './components/PromptInput'
+import { useAuth } from './contexts/AuthContext'
 import chatHistoryData from './data/chatHistory.json'
 
 export default function App() {
@@ -13,6 +14,7 @@ export default function App() {
   const [sessions, setSessions] = useState<ChatSession[]>(chatHistoryData as ChatSession[])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(sessions[0]?.id ?? null)
   const [isStreaming, setIsStreaming] = useState(false)
+  const { user, loading } = useAuth()
 
   const activeSession = sessions.find(s => s.id === activeSessionId) ?? null
 
@@ -135,10 +137,21 @@ export default function App() {
           isStreaming={isStreaming}
           onSuggestionClick={handleSubmit}
         />
-        <PromptInput
-          isStreaming={isStreaming}
-          onSubmit={handleSubmit}
-        />
+        {loading ? (
+          <div className="p-6 border-t border-gray-100 bg-gray-50 text-center">
+            <span className="inline-block w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mr-2"></span>
+            <span className="text-gray-500 text-sm">読み込み中...</span>
+          </div>
+        ) : user ? (
+          <PromptInput
+            isStreaming={isStreaming}
+            onSubmit={handleSubmit}
+          />
+        ) : (
+          <div className="p-6 border-t border-gray-100 bg-gray-50 text-center">
+            <p className="text-gray-500 text-sm mb-2">チャットを開始するにはログインが必要です</p>
+          </div>
+        )}
       </div>
     </div>
   )
