@@ -1,9 +1,11 @@
-name: Build and Deploy to Cloud Run
+name: Build and Deploy Backend to Cloud Run
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'backend/**'
   workflow_dispatch: # 手動実行を可能にする
 
 permissions:
@@ -12,17 +14,17 @@ permissions:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: asia-northeast1
-  SERVICE_NAME: git-push-pray-frontend
-  IMAGE: asia-northeast1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/git-push-pray-frontend
+  SERVICE_NAME: git-push-pray-backend
+  IMAGE: asia-northeast1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/git-push-pray-backend
 
 # 同一ブランチで複数のデプロイが同時実行されないよう制御
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: deploy-backend-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   deploy:
-    name: Build, Push, and Deploy
+    name: Build, Push, and Deploy Backend
     runs-on: ubuntu-latest
 
     steps:
@@ -47,8 +49,7 @@ jobs:
         run: |
           docker build \
             -t ${{ env.IMAGE }}:${{ github.sha }} \
-            --build-arg VITE_API_BASE_URL="${{ secrets.BACKEND_CLOUD_RUN_URL }}" \
-            ./frontend
+            ./backend
 
       - name: Push image to Artifact Registry
         run: docker push ${{ env.IMAGE }}:${{ github.sha }}
@@ -60,5 +61,6 @@ jobs:
             --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
-            --port 8080 \
+            --port 8081 \
+            --set-env-vars GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }},GOOGLE_CLOUD_LOCATION=asia-northeast1,GOOGLE_GENAI_USE_VERTEXAI=TRUE \
             --quiet
