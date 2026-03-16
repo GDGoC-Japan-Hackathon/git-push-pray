@@ -137,6 +137,24 @@ func (svc *ChatService) Chat(ctx context.Context, userID, conversationID, messag
 		contents,
 		&genai.GenerateContentConfig{
 			SystemInstruction: genai.NewContentFromText(systemInstruction, "user"),
+			SafetySettings: []*genai.SafetySetting{
+				{
+					Category:  genai.HarmCategoryHarassment,
+					Threshold: genai.HarmBlockThresholdBlockOnlyHigh,
+				},
+				{
+					Category:  genai.HarmCategoryHateSpeech,
+					Threshold: genai.HarmBlockThresholdBlockOnlyHigh,
+				},
+				{
+					Category:  genai.HarmCategorySexuallyExplicit,
+					Threshold: genai.HarmBlockThresholdBlockOnlyHigh,
+				},
+				{
+					Category:  genai.HarmCategoryDangerousContent,
+					Threshold: genai.HarmBlockThresholdBlockOnlyHigh,
+				},
+			},
 		},
 	)
 	if err != nil {
