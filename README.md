@@ -31,6 +31,7 @@ gcloud auth application-default login
 **インストール (Mac の場合):**
 
 ```bash
+cd backend/
 # Intel Mac
 curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.3/cloud-sql-proxy.darwin.amd64
 # Apple Silicon (M1/M2/M3) Mac
@@ -41,6 +42,7 @@ chmod +x cloud-sql-proxy
 **インストール (Linux の場合):**
 
 ```bash
+cd backend/
 # AMD64 (x86_64)
 curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.3/cloud-sql-proxy.linux.amd64
 # ARM64
@@ -49,7 +51,7 @@ chmod +x cloud-sql-proxy
 ```
 
 **インストール (Windows の場合):**
-[公式のダウンロードリンク (x64用)](https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.3/cloud-sql-proxy.x64.exe) から `cloud-sql-proxy.exe` をダウンロードし、作業フォルダ（`terraform/` など）に配置してください。
+[公式のダウンロードリンク (x64用)](https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.3/cloud-sql-proxy.x64.exe) から `cloud-sql-proxy.exe` をダウンロードし、`backend/` フォルダに配置してください。
 
 **起動:**
 新しいターミナルタブを開き、以下のコマンドを実行したままにしてください。（バックグラウンドで動作し続けます）
