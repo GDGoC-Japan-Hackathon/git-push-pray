@@ -7,7 +7,7 @@ RUN go mod download
 
 COPY . .
 # CGO disabled for scratch image
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server ./main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server ./cmd/server/main.go
 
 # Production stage
 FROM alpine:latest
