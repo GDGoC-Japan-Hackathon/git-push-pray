@@ -9,6 +9,7 @@ type ChatRequest struct {
 type ChatResponse struct {
 	ConversationID string `json:"conversation_id"`
 	Reply          string `json:"reply"`
+	Emotion        string `json:"emotion"`
 }
 
 type HistoryMessage struct {

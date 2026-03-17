@@ -7,12 +7,14 @@ import { Header } from './components/Header'
 import { ChatArea } from './components/ChatArea'
 import { PromptInput } from './components/PromptInput'
 import { useAuth } from './contexts/AuthContext'
+import { AvatarCanvas } from './components/AvatarViewer'
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [isStreaming, setIsStreaming] = useState(false)
+  const [currentEmotion, setCurrentEmotion] = useState<string>('neutral')
   const { user, loading } = useAuth()
 
   const activeSession = sessions.find(s => s.id === activeSessionId) ?? null
@@ -136,6 +138,7 @@ export default function App() {
   const handleSubmit = useCallback(async (text: string) => {
     if (isStreaming) return
     setIsStreaming(true)
+    setCurrentEmotion('thinking')
 
     let sessionId = activeSessionId
     if (!sessionId) {
@@ -186,9 +189,16 @@ export default function App() {
         throw new Error(`API error: ${resp.status}`)
       }
       const data = await resp.json()
-      streamResponse(sessionId, data.reply)
+      
+      // バックエンドのレスポンスがJSON形式で { reply: string, emotion?: string } の場合を想定
+      const replyText = data.reply || data.message || ""
+      const emotion = data.emotion || 'neutral'
+      
+      setCurrentEmotion(emotion)
+      streamResponse(sessionId, replyText)
     } catch (err) {
       console.error('Failed to fetch from backend:', err)
+      setCurrentEmotion('sorrow')
       // エラー時は MOCK_RESPONSES へのフォールバック、またはエラーメッセージ表示
       const fallbackResponse = "申し訳ありません。バックエンドへの接続に失敗しました。ローカルでGoサーバーが起動しているか確認してください。"
       streamResponse(sessionId, fallbackResponse)
@@ -211,26 +221,39 @@ export default function App() {
           title={activeSession?.title ?? null}
           onMenuClick={() => setSidebarOpen(true)}
         />
-        <ChatArea
-          session={activeSession}
-          isStreaming={isStreaming}
-          onSuggestionClick={user ? handleSubmit : undefined}
-        />
-        {loading ? (
-          <div className="p-6 border-t border-gray-100 bg-gray-50 text-center">
-            <span className="inline-block w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mr-2"></span>
-            <span className="text-gray-500 text-sm">読み込み中...</span>
+        
+        <div className="flex flex-1 min-h-0 overflow-hidden bg-gray-50 flex-row justify-center">
+          <div className="flex flex-row w-full max-w-6xl shadow-sm bg-white overflow-hidden">
+            {/* 左側: 3Dアバター表示枠。 */}
+            <div className="hidden sm:flex w-64 md:w-80 lg:w-96 flex-shrink-0 bg-transparent flex-col items-end justify-center relative overflow-hidden">
+              <AvatarCanvas url="/avatar.vrm" emotion={currentEmotion} />
+            </div>
+
+            {/* 右側: チャット（枠線等を入れると境界がハッキリします） */}
+            <div className="flex flex-col flex-1 min-w-0 relative border-l border-gray-200">
+            <ChatArea
+              session={activeSession}
+              isStreaming={isStreaming}
+              onSuggestionClick={user ? handleSubmit : undefined}
+            />
+            {loading ? (
+              <div className="p-6 border-t border-gray-100 bg-gray-50 text-center">
+                <span className="inline-block w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mr-2"></span>
+                <span className="text-gray-500 text-sm">読み込み中...</span>
+              </div>
+            ) : user ? (
+              <PromptInput
+                isStreaming={isStreaming}
+                onSubmit={handleSubmit}
+              />
+            ) : (
+              <div className="p-6 border-t border-gray-100 bg-gray-50 text-center">
+                <p className="text-gray-500 text-sm mb-2">チャットを開始するにはログインが必要です</p>
+              </div>
+            )}
           </div>
-        ) : user ? (
-          <PromptInput
-            isStreaming={isStreaming}
-            onSubmit={handleSubmit}
-          />
-        ) : (
-          <div className="p-6 border-t border-gray-100 bg-gray-50 text-center">
-            <p className="text-gray-500 text-sm mb-2">チャットを開始するにはログインが必要です</p>
-          </div>
-        )}
+        </div>
+        </div>
       </div>
     </div>
   )
