@@ -17,3 +17,4 @@ override.tf.json
 terraform.rc
 
 cloud-sql-proxy
+firebase-debug.log
