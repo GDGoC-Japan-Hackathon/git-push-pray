@@ -281,3 +281,5 @@ GitHub リポジトリの `Settings` -> `Secrets and variables` -> `Actions` か
 | -------------------- | ------------------------------------------------------- |
 | **ローカル開発**     | Vite proxy 経由 -> `http://localhost:8081`              |
 | **本番 (Cloud Run)** | `VITE_API_BASE_URL`（バックエンドの URL）に直接アクセス |
+
+nya
