@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/middleware"
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/model"
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/service"
 )
@@ -17,9 +18,20 @@ func New(svc *service.ChatService) *Handler {
 	return &Handler{svc: svc}
 }
 
+func userIDFromContext(r *http.Request) (string, bool) {
+	uid, ok := r.Context().Value(middleware.UserIDKey).(string)
+	return uid, ok && uid != ""
+}
+
 func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID, ok := userIDFromContext(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -28,14 +40,14 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if req.UserID == "" || req.Message == "" {
-		http.Error(w, "user_id and message are required", http.StatusBadRequest)
+	if req.Message == "" {
+		http.Error(w, "message is required", http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("user=%s conversation=%s message=%s", req.UserID, req.ConversationID, req.Message)
+	log.Printf("user=%s conversation=%s message_len=%d", userID, req.ConversationID, len(req.Message))
 
-	resp, err := h.svc.Chat(r.Context(), req.UserID, req.ConversationID, req.Message)
+	resp, err := h.svc.Chat(r.Context(), userID, req.ConversationID, req.Message)
 	if err != nil {
 		log.Printf("Gemini error: %v", err)
 		http.Error(w, "Failed to generate response", http.StatusInternalServerError)
@@ -52,10 +64,15 @@ func (h *Handler) History(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.URL.Query().Get("user_id")
+	userID, ok := userIDFromContext(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	conversationID := r.URL.Query().Get("conversation_id")
-	if userID == "" || conversationID == "" {
-		http.Error(w, "user_id and conversation_id are required", http.StatusBadRequest)
+	if conversationID == "" {
+		http.Error(w, "conversation_id is required", http.StatusBadRequest)
 		return
 	}
 
@@ -69,9 +86,9 @@ func (h *Handler) Sessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.URL.Query().Get("user_id")
-	if userID == "" {
-		http.Error(w, "user_id is required", http.StatusBadRequest)
+	userID, ok := userIDFromContext(r)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
