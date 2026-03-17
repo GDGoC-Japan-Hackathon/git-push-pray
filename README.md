@@ -126,7 +126,7 @@ make front
    ```bash
    curl -X POST http://localhost:8081/api/chat \
      -H "Content-Type: application/json" \
-     -d '{"message":"GCPのVertex AIについて3行で教えて"}'
+     -d '{"user_id":"test-user","message":"GCPのVertex AIについて3行で教えて"}'
    ```
 
 3. **レスポンスの確認**

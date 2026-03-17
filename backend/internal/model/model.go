@@ -24,6 +24,7 @@ type SessionMeta struct {
 	ConversationID string `json:"conversation_id"`
 	Title          string `json:"title"`
 	LastMessage    string `json:"last_message"`
+	UpdatedAt      string `json:"updated_at"`
 }
 
 type SessionsResponse struct {

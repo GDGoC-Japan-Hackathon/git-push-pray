@@ -34,15 +34,31 @@ export default function App() {
         )
         if (!resp.ok) return
         const data = await resp.json()
-        const fetched: ChatSession[] = data.sessions.map((s: { conversation_id: string; title: string; last_message: string }) => ({
+        const fetched: ChatSession[] = data.sessions.map((s: { conversation_id: string; title: string; last_message: string; updated_at?: string }) => ({
           id: s.conversation_id,
           title: s.title,
           lastMessage: s.last_message,
-          timestamp: '',
+          timestamp: s.updated_at || new Date().toISOString(),
           messages: [],
         }))
         setSessions(fetched)
-        if (fetched.length > 0) setActiveSessionId(fetched[0].id)
+        if (fetched.length > 0) {
+          const firstId = fetched[0].id
+          setActiveSessionId(firstId)
+          // 最初のセッションの履歴を取得
+          const histResp = await fetch(
+            `${apiBase}/api/history?user_id=${encodeURIComponent(user.uid)}&conversation_id=${encodeURIComponent(firstId)}`,
+            { headers: { 'Authorization': `Bearer ${token}` } }
+          )
+          if (histResp.ok) {
+            const histData = await histResp.json()
+            setSessions(prev => prev.map(s =>
+              s.id === firstId
+                ? { ...s, messages: histData.messages.map((m: { role: string; content: string }) => ({ id: nanoid(), role: m.role as 'user' | 'assistant', content: m.content })) }
+                : s
+            ))
+          }
+        }
       } catch (err) {
         console.error('Failed to fetch sessions:', err)
       }

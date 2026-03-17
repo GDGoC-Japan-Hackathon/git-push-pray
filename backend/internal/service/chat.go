@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/model"
 	"google.golang.org/genai"
@@ -20,8 +22,9 @@ func newID() string {
 }
 
 type store struct {
-	mu      sync.RWMutex
-	history map[string][]*genai.Content
+	mu        sync.RWMutex
+	history   map[string][]*genai.Content
+	updatedAt map[string]time.Time
 }
 
 func (s *store) key(userID, conversationID string) string {
@@ -31,13 +34,21 @@ func (s *store) key(userID, conversationID string) string {
 func (s *store) get(userID, conversationID string) []*genai.Content {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.history[s.key(userID, conversationID)]
+	src := s.history[s.key(userID, conversationID)]
+	if src == nil {
+		return nil
+	}
+	dst := make([]*genai.Content, len(src))
+	copy(dst, src)
+	return dst
 }
 
 func (s *store) set(userID, conversationID string, contents []*genai.Content) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.history[s.key(userID, conversationID)] = contents
+	key := s.key(userID, conversationID)
+	s.history[key] = contents
+	s.updatedAt[key] = time.Now()
 }
 
 func (s *store) list(userID string) []model.SessionMeta {
@@ -73,12 +84,20 @@ func (s *store) list(userID string) []model.SessionMeta {
 				}
 			}
 		}
+		updatedAt := ""
+		if t, ok := s.updatedAt[k]; ok {
+			updatedAt = t.Format(time.RFC3339)
+		}
 		sessions = append(sessions, model.SessionMeta{
 			ConversationID: conversationID,
 			Title:          title,
 			LastMessage:    lastMessage,
+			UpdatedAt:      updatedAt,
 		})
 	}
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].UpdatedAt > sessions[j].UpdatedAt
+	})
 	return sessions
 }
 
@@ -94,7 +113,10 @@ func New() (*ChatService, error) {
 	}
 	return &ChatService{
 		client: client,
-		store:  &store{history: make(map[string][]*genai.Content)},
+		store: &store{
+			history:   make(map[string][]*genai.Content),
+			updatedAt: make(map[string]time.Time),
+		},
 	}, nil
 }
 
