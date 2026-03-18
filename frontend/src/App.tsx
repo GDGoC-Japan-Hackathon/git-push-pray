@@ -186,7 +186,14 @@ export default function App() {
         throw new Error(`API error: ${resp.status}`)
       }
       const data = await resp.json()
-      streamResponse(sessionId, data.reply)
+      const actualId = data.conversation_id || sessionId
+      if (actualId !== sessionId) {
+        setSessions(prev => prev.map(s =>
+          s.id === sessionId ? { ...s, id: actualId } : s
+        ))
+        setActiveSessionId(actualId)
+      }
+      streamResponse(actualId, data.reply)
     } catch (err) {
       console.error('Failed to fetch from backend:', err)
       // エラー時は MOCK_RESPONSES へのフォールバック、またはエラーメッセージ表示
