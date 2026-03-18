@@ -24,7 +24,7 @@ type Conversation struct {
 }
 
 type Message struct {
-	ID             uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	ID             int64     `gorm:"primaryKey;autoIncrement" json:"id"`
 	ConversationID uuid.UUID `gorm:"type:uuid;index;not null" json:"conversation_id"`
 	Role           string    `gorm:"size:50;not null" json:"role"`
 	Content        string    `gorm:"type:text;not null" json:"content"`

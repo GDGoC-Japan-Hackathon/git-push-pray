@@ -20,7 +20,7 @@ func CreateMessage(conversationID uuid.UUID, role, content string, tokenCount in
 
 func GetMessagesByConversationID(conversationID uuid.UUID) ([]model.Message, error) {
 	var msgs []model.Message
-	if err := DB.Where("conversation_id = ?", conversationID).Order("created_at ASC").Find(&msgs).Error; err != nil {
+	if err := DB.Where("conversation_id = ?", conversationID).Order("id ASC").Find(&msgs).Error; err != nil {
 		return nil, err
 	}
 	return msgs, nil
@@ -28,7 +28,7 @@ func GetMessagesByConversationID(conversationID uuid.UUID) ([]model.Message, err
 
 func GetLastMessage(conversationID uuid.UUID) (*model.Message, error) {
 	var msg model.Message
-	if err := DB.Where("conversation_id = ?", conversationID).Order("created_at DESC").First(&msg).Error; err != nil {
+	if err := DB.Where("conversation_id = ?", conversationID).Order("id DESC").First(&msg).Error; err != nil {
 		return nil, err
 	}
 	return &msg, nil
