@@ -58,7 +58,7 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("user=%d firebase_uid=%s conversation=%s message_len=%d", user.ID, user.FirebaseUID, req.ConversationID, len(req.Message))
+	log.Printf("user=%s firebase_uid=%s conversation=%s message_len=%d", user.ID.String(), user.FirebaseUID, req.ConversationID, len(req.Message))
 
 	resp, err := h.svc.Chat(r.Context(), user, req.ConversationID, req.Message)
 	if err != nil {

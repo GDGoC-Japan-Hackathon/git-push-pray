@@ -22,8 +22,17 @@ func FindOrCreateUser(firebaseUID, name, email string) (*model.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	if user.Name != name || user.Email != email {
-		DB.Model(&user).Updates(map[string]interface{}{"name": name, "email": email})
+	updateData := make(map[string]interface{})
+	if name != "" && user.Name != name {
+		updateData["name"] = name
+	}
+	if email != "" && user.Email != email {
+		updateData["email"] = email
+	}
+	if len(updateData) > 0 {
+		if err := DB.Model(&user).Updates(updateData).Error; err != nil {
+			return nil, err
+		}
 	}
 	return &user, nil
 }

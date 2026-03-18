@@ -7,6 +7,7 @@ import (
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/repository"
 	"github.com/google/uuid"
 	"google.golang.org/genai"
+	"gorm.io/gorm"
 )
 
 const systemInstruction = `あなたは「好奇心旺盛で学ぶ意欲が高い生徒（後輩）」のペルソナを持つAIです。
@@ -56,7 +57,11 @@ func (svc *ChatService) Chat(ctx context.Context, user *model.User, conversation
 
 	convID, parseErr := uuid.Parse(conversationIDStr)
 	if parseErr == nil {
-		conv, _ = repository.GetConversationByIDAndUserID(convID, user.ID)
+		var err error
+		conv, err = repository.GetConversationByIDAndUserID(convID, user.ID)
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return nil, err
+		}
 	}
 
 	if conv == nil {
@@ -145,12 +150,15 @@ func (svc *ChatService) Chat(ctx context.Context, user *model.User, conversation
 func (svc *ChatService) History(userID uuid.UUID, conversationIDStr string) (*model.HistoryResponse, error) {
 	convID, err := uuid.Parse(conversationIDStr)
 	if err != nil {
-		return &model.HistoryResponse{Messages: []model.HistoryMessage{}}, nil
+		return nil, err
 	}
 
 	conv, err := repository.GetConversationByIDAndUserID(convID, userID)
 	if err != nil {
-		return &model.HistoryResponse{Messages: []model.HistoryMessage{}}, nil
+		if err == gorm.ErrRecordNotFound {
+			return &model.HistoryResponse{Messages: []model.HistoryMessage{}}, nil
+		}
+		return nil, err
 	}
 
 	dbMessages, err := repository.GetMessagesByConversationID(conv.ID)
