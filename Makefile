@@ -1,11 +1,23 @@
-.PHONY: back front database
+.PHONY: back front database all
 
 back:
 	cd backend && go run ./cmd/server
 
 front:
-	cd frontend && npm run dev
+	cd frontend && npm ci && npm run dev
 
 database:
 	./backend/cloud-sql-proxy git-push-pray:asia-northeast1:git-push-pray-db
 
+all:
+	@$(MAKE) database & \
+	echo "Waiting for database proxy to be ready..." && \
+	if command -v nc >/dev/null 2>&1; then \
+		while ! nc -z localhost 5432 2>/dev/null; do sleep 0.5; done; \
+	else \
+		echo "nc not found, waiting 3 seconds instead..." && sleep 3; \
+	fi && \
+	echo "Starting backend and frontend..." && \
+	$(MAKE) back & \
+	$(MAKE) front & \
+	wait
