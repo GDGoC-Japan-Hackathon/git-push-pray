@@ -3,8 +3,9 @@ import { nanoid } from 'nanoid'
 import type { ChatSession } from './types'
 
 import { Sidebar } from './components/Sidebar'
-import { Header } from './components/Header'
+import { Header, type ViewMode } from './components/Header'
 import { ChatArea } from './components/ChatArea'
+import { MindMapView } from './components/MindMapView'
 import { PromptInput } from './components/PromptInput'
 import { useAuth } from './contexts/AuthContext'
 
@@ -13,6 +14,7 @@ export default function App() {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [isStreaming, setIsStreaming] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('chat')
   const { user, loading } = useAuth()
 
   const activeSession = sessions.find(s => s.id === activeSessionId) ?? null
@@ -217,13 +219,19 @@ export default function App() {
         <Header
           title={activeSession?.title ?? null}
           onMenuClick={() => setSidebarOpen(true)}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
         />
-        <ChatArea
-          session={activeSession}
-          isStreaming={isStreaming}
-          onSuggestionClick={user ? handleSubmit : undefined}
-        />
-        {loading ? (
+        {viewMode === 'chat' ? (
+          <ChatArea
+            session={activeSession}
+            isStreaming={isStreaming}
+            onSuggestionClick={user ? handleSubmit : undefined}
+          />
+        ) : (
+          <MindMapView session={activeSession} />
+        )}
+        {viewMode === 'mindmap' ? null : loading ? (
           <div className="p-6 border-t border-gray-100 bg-gray-50 text-center">
             <span className="inline-block w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mr-2"></span>
             <span className="text-gray-500 text-sm">読み込み中...</span>
