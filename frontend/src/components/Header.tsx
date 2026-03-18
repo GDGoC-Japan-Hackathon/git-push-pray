@@ -2,7 +2,7 @@ import { MenuIcon, MessageSquareIcon, NetworkIcon } from 'lucide-react'
 import { BotAvatar } from './BotAvatar'
 import { LoginButton } from './auth/LoginButton'
 
-export type ViewMode = 'chat' | 'mindmap'
+export type ViewMode = 'chat' | 'tree'
 
 interface Props {
   title: string | null
@@ -39,10 +39,10 @@ export function Header({ title, onMenuClick, viewMode, onViewModeChange }: Props
             <MessageSquareIcon size={16} />
           </button>
           <button
-            onClick={() => onViewModeChange('mindmap')}
-            className={`p-2 transition-colors ${viewMode === 'mindmap' ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}
-            aria-label="マインドマップ表示"
-            title="マインドマップ"
+            onClick={() => onViewModeChange('tree')}
+            className={`p-2 transition-colors ${viewMode === 'tree' ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}
+            aria-label="会話ツリー表示"
+            title="会話ツリー"
           >
             <NetworkIcon size={16} />
           </button>

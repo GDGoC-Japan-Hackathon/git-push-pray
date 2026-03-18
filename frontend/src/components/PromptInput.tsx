@@ -4,14 +4,18 @@ import { SendIcon } from 'lucide-react'
 interface Props {
   isStreaming: boolean
   onSubmit: (text: string) => void
+  selectedQuestion?: string | null // 会話ツリーで選択中の質問
+  requiresSelection?: boolean      // 選択必須モード（会話ツリー表示中）
 }
 
-export function PromptInput({ isStreaming, onSubmit }: Props) {
+export function PromptInput({ isStreaming, onSubmit, selectedQuestion, requiresSelection }: Props) {
   const [input, setInput] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  const isDisabled = isStreaming || (requiresSelection && !selectedQuestion)
+
   const handleSubmit = () => {
-    if (!input.trim() || isStreaming) return
+    if (!input.trim() || isDisabled) return
     onSubmit(input.trim())
     setInput('')
     if (textareaRef.current) {
@@ -32,20 +36,34 @@ export function PromptInput({ isStreaming, onSubmit }: Props) {
     }
   }
 
-  const canSubmit = Boolean(input.trim()) && !isStreaming
+  const canSubmit = Boolean(input.trim()) && !isDisabled
+
+  const placeholder = requiresSelection && !selectedQuestion
+    ? '会話ツリーのノードを選択してください'
+    : selectedQuestion
+      ? `「${selectedQuestion}」に回答する`
+      : '学びたいテーマを入力... (Enterで送信、Shift+Enterで改行)'
 
   return (
     <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-4">
       <div className="max-w-3xl mx-auto">
-        <div className="flex gap-2 items-end bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
+        {selectedQuestion && (
+          <div className="mb-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 truncate">
+            回答中: {selectedQuestion}
+          </div>
+        )}
+        <div className={`flex gap-2 items-end bg-gray-50 border rounded-2xl px-4 py-3 transition-all
+          ${isDisabled ? 'border-gray-100 opacity-60' : 'border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100'}
+        `}>
           <textarea
             ref={textareaRef}
             value={input}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            placeholder="メッセージを入力... (Enterで送信、Shift+Enterで改行)"
+            placeholder={placeholder}
+            disabled={isDisabled}
             rows={1}
-            className="flex-1 bg-transparent resize-none outline-none text-sm text-gray-800 placeholder-gray-400 max-h-[200px] leading-relaxed"
+            className="flex-1 bg-transparent resize-none outline-none text-sm text-gray-800 placeholder-gray-400 max-h-[200px] leading-relaxed disabled:cursor-not-allowed"
             style={{ height: '24px' }}
           />
           <SubmitButton onClick={handleSubmit} disabled={!canSubmit} />

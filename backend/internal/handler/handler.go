@@ -58,15 +58,47 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("user=%s firebase_uid=%s conversation=%s message_len=%d", user.ID.String(), user.FirebaseUID, req.ConversationID, len(req.Message))
+	log.Printf("user=%s firebase_uid=%s conversation=%s message_len=%d parent_node=%s", user.ID.String(), user.FirebaseUID, req.ConversationID, len(req.Message), req.ParentNodeID)
 
-	resp, err := h.svc.Chat(r.Context(), user, req.ConversationID, req.Message)
+	resp, err := h.svc.Chat(r.Context(), user, req.ConversationID, req.Message, req.ParentNodeID, req.AnsweringQuestion)
 	if err != nil {
+		if err.Error() == "this node has already been answered" {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
 		log.Printf("Gemini error: %v", err)
 		http.Error(w, "Failed to generate response", http.StatusInternalServerError)
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (h *Handler) ConversationTree(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, err := h.ensureUser(r)
+	if err != nil {
+		log.Printf("Failed to ensure user: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	conversationID := r.URL.Query().Get("conversation_id")
+	if conversationID == "" {
+		http.Error(w, "conversation_id is required", http.StatusBadRequest)
+		return
+	}
+
+	resp := h.svc.GetConversationTree(conversationID)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
