@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -25,6 +26,11 @@ func InitDB() error {
 
 	DB = db
 	log.Println("Database connection established successfully")
+
+	if err := db.AutoMigrate(&model.User{}, &model.Conversation{}, &model.Message{}); err != nil {
+		return fmt.Errorf("auto migration failed: %w", err)
+	}
+	log.Println("Database migration completed successfully")
 
 	return nil
 }

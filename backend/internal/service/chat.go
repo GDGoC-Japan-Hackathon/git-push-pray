@@ -2,14 +2,10 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"sort"
-	"strings"
-	"sync"
-	"time"
 
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/model"
+	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/repository"
+	"github.com/google/uuid"
 	"google.golang.org/genai"
 )
 
@@ -39,95 +35,8 @@ const systemInstruction = `あなたは「好奇心旺盛で学ぶ意欲が高�
 5. 簡潔なキャッチボール
 一度に複数の質問を投げかけたり、長文で返答したりしないでください。対話のテンポを重視し、1回の返答は短く（1〜3文程度）まとめて、ユーザーが話しやすい余白を作ってください。`
 
-func newID() string {
-	b := make([]byte, 8)
-	rand.Read(b)
-	return hex.EncodeToString(b)
-}
-
-type store struct {
-	mu        sync.RWMutex
-	history   map[string][]*genai.Content
-	updatedAt map[string]time.Time
-}
-
-func (s *store) key(userID, conversationID string) string {
-	return userID + ":" + conversationID
-}
-
-func (s *store) get(userID, conversationID string) []*genai.Content {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	src := s.history[s.key(userID, conversationID)]
-	if src == nil {
-		return nil
-	}
-	dst := make([]*genai.Content, len(src))
-	copy(dst, src)
-	return dst
-}
-
-func (s *store) set(userID, conversationID string, contents []*genai.Content) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	key := s.key(userID, conversationID)
-	s.history[key] = contents
-	s.updatedAt[key] = time.Now()
-}
-
-func (s *store) list(userID string) []model.SessionMeta {
-	prefix := userID + ":"
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	var sessions []model.SessionMeta
-	for k, contents := range s.history {
-		if !strings.HasPrefix(k, prefix) {
-			continue
-		}
-		conversationID := strings.TrimPrefix(k, prefix)
-		title := conversationID
-		lastMessage := ""
-		for _, c := range contents {
-			text := ""
-			for _, p := range c.Parts {
-				if p != nil {
-					text += p.Text
-				}
-			}
-			if c.Role == "user" && title == conversationID {
-				title = text
-				if len(title) > 30 {
-					title = title[:30]
-				}
-			}
-			if text != "" {
-				lastMessage = text
-				if len(lastMessage) > 60 {
-					lastMessage = lastMessage[:60]
-				}
-			}
-		}
-		updatedAt := ""
-		if t, ok := s.updatedAt[k]; ok {
-			updatedAt = t.Format(time.RFC3339)
-		}
-		sessions = append(sessions, model.SessionMeta{
-			ConversationID: conversationID,
-			Title:          title,
-			LastMessage:    lastMessage,
-			UpdatedAt:      updatedAt,
-		})
-	}
-	sort.Slice(sessions, func(i, j int) bool {
-		return sessions[i].UpdatedAt > sessions[j].UpdatedAt
-	})
-	return sessions
-}
-
 type ChatService struct {
 	client *genai.Client
-	store  *store
 }
 
 func New() (*ChatService, error) {
@@ -135,22 +44,51 @@ func New() (*ChatService, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ChatService{
-		client: client,
-		store: &store{
-			history:   make(map[string][]*genai.Content),
-			updatedAt: make(map[string]time.Time),
-		},
-	}, nil
+	return &ChatService{client: client}, nil
 }
 
-func (svc *ChatService) Chat(ctx context.Context, userID, conversationID, message string) (*model.ChatResponse, error) {
-	if conversationID == "" {
-		conversationID = newID()
+func EnsureUser(firebaseUID, name, email string) (*model.User, error) {
+	return repository.FindOrCreateUser(firebaseUID, name, email)
+}
+
+func (svc *ChatService) Chat(ctx context.Context, user *model.User, conversationIDStr, message string) (*model.ChatResponse, error) {
+	var conv *model.Conversation
+
+	convID, parseErr := uuid.Parse(conversationIDStr)
+	if parseErr == nil {
+		conv, _ = repository.GetConversationByIDAndUserID(convID, user.ID)
 	}
 
-	history := svc.store.get(userID, conversationID)
-	contents := append(history, &genai.Content{
+	if conv == nil {
+		title := message
+		if len([]rune(title)) > 30 {
+			title = string([]rune(title)[:30])
+		}
+		var err error
+		conv, err = repository.CreateConversation(user.ID, title)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	dbMessages, err := repository.GetMessagesByConversationID(conv.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	var contents []*genai.Content
+	for _, m := range dbMessages {
+		role := m.Role
+		if role == "assistant" {
+			role = "model"
+		}
+		contents = append(contents, &genai.Content{
+			Role:  role,
+			Parts: []*genai.Part{genai.NewPartFromText(m.Content)},
+		})
+	}
+
+	contents = append(contents, &genai.Content{
 		Role:  "user",
 		Parts: []*genai.Part{genai.NewPartFromText(message)},
 	})
@@ -186,38 +124,68 @@ func (svc *ChatService) Chat(ctx context.Context, userID, conversationID, messag
 	}
 
 	replyText := resp.Text()
-	contents = append(contents, &genai.Content{
-		Role:  "model",
-		Parts: []*genai.Part{genai.NewPartFromText(replyText)},
-	})
-	svc.store.set(userID, conversationID, contents)
 
-	return &model.ChatResponse{ConversationID: conversationID, Reply: replyText}, nil
+	if _, err := repository.CreateMessage(conv.ID, "user", message, 0); err != nil {
+		return nil, err
+	}
+	if _, err := repository.CreateMessage(conv.ID, "assistant", replyText, 0); err != nil {
+		return nil, err
+	}
+
+	if err := repository.TouchConversation(conv.ID); err != nil {
+		return nil, err
+	}
+
+	return &model.ChatResponse{
+		ConversationID: conv.ID.String(),
+		Reply:          replyText,
+	}, nil
 }
 
-func (svc *ChatService) History(userID, conversationID string) *model.HistoryResponse {
-	history := svc.store.get(userID, conversationID)
-	messages := make([]model.HistoryMessage, 0, len(history))
-	for _, c := range history {
-		role := c.Role
-		if role == "model" {
-			role = "assistant"
-		}
-		text := ""
-		for _, p := range c.Parts {
-			if p != nil {
-				text += p.Text
+func (svc *ChatService) History(userID uuid.UUID, conversationIDStr string) (*model.HistoryResponse, error) {
+	convID, err := uuid.Parse(conversationIDStr)
+	if err != nil {
+		return &model.HistoryResponse{Messages: []model.HistoryMessage{}}, nil
+	}
+
+	conv, err := repository.GetConversationByIDAndUserID(convID, userID)
+	if err != nil {
+		return &model.HistoryResponse{Messages: []model.HistoryMessage{}}, nil
+	}
+
+	dbMessages, err := repository.GetMessagesByConversationID(conv.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	messages := make([]model.HistoryMessage, 0, len(dbMessages))
+	for _, m := range dbMessages {
+		messages = append(messages, model.HistoryMessage{Role: m.Role, Content: m.Content})
+	}
+	return &model.HistoryResponse{Messages: messages}, nil
+}
+
+func (svc *ChatService) Sessions(userID uuid.UUID) (*model.SessionsResponse, error) {
+	convs, err := repository.ListConversationsByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	sessions := make([]model.SessionMeta, 0, len(convs))
+	for _, c := range convs {
+		lastMessage := ""
+		if msg, err := repository.GetLastMessage(c.ID); err == nil {
+			lastMessage = msg.Content
+			if len([]rune(lastMessage)) > 60 {
+				lastMessage = string([]rune(lastMessage)[:60])
 			}
 		}
-		messages = append(messages, model.HistoryMessage{Role: role, Content: text})
+		sessions = append(sessions, model.SessionMeta{
+			ConversationID: c.ID.String(),
+			Title:          c.Title,
+			LastMessage:    lastMessage,
+			UpdatedAt:      c.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		})
 	}
-	return &model.HistoryResponse{Messages: messages}
-}
-
-func (svc *ChatService) Sessions(userID string) *model.SessionsResponse {
-	sessions := svc.store.list(userID)
-	if sessions == nil {
-		sessions = []model.SessionMeta{}
-	}
-	return &model.SessionsResponse{Sessions: sessions}
+	return &model.SessionsResponse{Sessions: sessions}, nil
 }

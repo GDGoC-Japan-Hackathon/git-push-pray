@@ -18,9 +18,17 @@ func New(svc *service.ChatService) *Handler {
 	return &Handler{svc: svc}
 }
 
-func userIDFromContext(r *http.Request) (string, bool) {
-	uid, ok := r.Context().Value(middleware.UserIDKey).(string)
-	return uid, ok && uid != ""
+func authInfoFromContext(r *http.Request) (*middleware.AuthInfo, bool) {
+	info, ok := r.Context().Value(middleware.AuthInfoKey).(*middleware.AuthInfo)
+	return info, ok && info != nil
+}
+
+func (h *Handler) ensureUser(r *http.Request) (*model.User, error) {
+	info, ok := authInfoFromContext(r)
+	if !ok {
+		return nil, nil
+	}
+	return service.EnsureUser(info.UID, info.Name, info.Email)
 }
 
 func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
@@ -29,8 +37,13 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := userIDFromContext(r)
-	if !ok {
+	user, err := h.ensureUser(r)
+	if err != nil {
+		log.Printf("Failed to ensure user: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -45,9 +58,9 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("user=%s conversation=%s message_len=%d", userID, req.ConversationID, len(req.Message))
+	log.Printf("user=%d firebase_uid=%s conversation=%s message_len=%d", user.ID, user.FirebaseUID, req.ConversationID, len(req.Message))
 
-	resp, err := h.svc.Chat(r.Context(), userID, req.ConversationID, req.Message)
+	resp, err := h.svc.Chat(r.Context(), user, req.ConversationID, req.Message)
 	if err != nil {
 		log.Printf("Gemini error: %v", err)
 		http.Error(w, "Failed to generate response", http.StatusInternalServerError)
@@ -64,8 +77,13 @@ func (h *Handler) History(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := userIDFromContext(r)
-	if !ok {
+	user, err := h.ensureUser(r)
+	if err != nil {
+		log.Printf("Failed to ensure user: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -76,8 +94,15 @@ func (h *Handler) History(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	resp, err := h.svc.History(user.ID, conversationID)
+	if err != nil {
+		log.Printf("History error: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(h.svc.History(userID, conversationID))
+	json.NewEncoder(w).Encode(resp)
 }
 
 func (h *Handler) Sessions(w http.ResponseWriter, r *http.Request) {
@@ -86,12 +111,24 @@ func (h *Handler) Sessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := userIDFromContext(r)
-	if !ok {
+	user, err := h.ensureUser(r)
+	if err != nil {
+		log.Printf("Failed to ensure user: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
+	resp, err := h.svc.Sessions(user.ID)
+	if err != nil {
+		log.Printf("Sessions error: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(h.svc.Sessions(userID))
+	json.NewEncoder(w).Encode(resp)
 }

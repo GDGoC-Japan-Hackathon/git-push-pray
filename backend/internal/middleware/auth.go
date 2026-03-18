@@ -12,6 +12,13 @@ import (
 type contextKey string
 
 const UserIDKey contextKey = "userID"
+const AuthInfoKey contextKey = "authInfo"
+
+type AuthInfo struct {
+	UID   string
+	Name  string
+	Email string
+}
 
 func Auth(app *firebase.App) func(http.Handler) http.Handler {
 	client, err := app.Auth(context.Background())
@@ -38,7 +45,17 @@ func Auth(app *firebase.App) func(http.Handler) http.Handler {
 				return
 			}
 
+			name, _ := decoded.Claims["name"].(string)
+			email, _ := decoded.Claims["email"].(string)
+
+			info := &AuthInfo{
+				UID:   decoded.UID,
+				Name:  name,
+				Email: email,
+			}
+
 			ctx := context.WithValue(r.Context(), UserIDKey, decoded.UID)
+			ctx = context.WithValue(ctx, AuthInfoKey, info)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
