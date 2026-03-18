@@ -9,9 +9,10 @@ interface Props {
   session: ChatSession | null
   isStreaming: boolean
   onSuggestionClick?: (text: string) => void
+  onInteract?: (message: string) => void
 }
 
-export function ChatArea({ session, isStreaming, onSuggestionClick }: Props) {
+export function ChatArea({ session, isStreaming, onSuggestionClick, onInteract }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export function ChatArea({ session, isStreaming, onSuggestionClick }: Props) {
           <EmptyState onSuggestionClick={onSuggestionClick} />
         ) : (
           session.messages.map(message => (
-            <Message key={message.id} message={message} />
+            <Message key={message.id} message={message} onInteract={onInteract} />
           ))
         )}
         {showTyping && <TypingIndicator />}

@@ -5,9 +5,10 @@ import { UserAvatar } from './UserAvatar'
 
 interface Props {
   message: ChatMessage
+  onInteract?: (message: string) => void
 }
 
-export function Message({ message }: Props) {
+export function Message({ message, onInteract }: Props) {
   const isUser = message.role === 'user'
 
   return (
@@ -24,7 +25,7 @@ export function Message({ message }: Props) {
       >
         {isUser
           ? message.content
-          : <div className="space-y-1">{renderMarkdown(message.content)}</div>
+          : <div className="space-y-1">{renderMarkdown(message.content, onInteract)}</div>
         }
       </div>
       {isUser && <UserAvatar />}

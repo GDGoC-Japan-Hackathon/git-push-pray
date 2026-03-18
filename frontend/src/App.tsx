@@ -222,6 +222,7 @@ export default function App() {
           session={activeSession}
           isStreaming={isStreaming}
           onSuggestionClick={user ? handleSubmit : undefined}
+          onInteract={user ? handleSubmit : undefined}
         />
         {loading ? (
           <div className="p-6 border-t border-gray-100 bg-gray-50 text-center">

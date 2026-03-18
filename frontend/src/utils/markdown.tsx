@@ -1,4 +1,6 @@
 import React from 'react'
+import { GraphVisualization } from '../components/GraphVisualization'
+import { InteractiveExercise } from '../components/InteractiveExercise'
 
 function parseLine(text: string): React.ReactNode[] {
   const parts: React.ReactNode[] = []
@@ -27,25 +29,55 @@ function parseLine(text: string): React.ReactNode[] {
   return parts
 }
 
-export function renderMarkdown(text: string): React.ReactElement[] {
+export function renderMarkdown(text: string, onInteract?: (message: string) => void): React.ReactElement[] {
   const lines = text.split('\n')
   const result: React.ReactElement[] = []
   let inCodeBlock = false
+  let blockLang = ''
   let codeLines: string[] = []
   let key = 0
 
   for (const line of lines) {
     if (line.startsWith('```')) {
       if (inCodeBlock) {
-        result.push(
-          <pre key={key++} className="bg-gray-200 rounded-md p-3 overflow-x-auto my-2 text-sm font-mono">
-            <code>{codeLines.join('\n')}</code>
-          </pre>
-        )
+        const raw = codeLines.join('\n')
+
+        if (blockLang === 'graph' && onInteract) {
+          try {
+            const config = JSON.parse(raw)
+            result.push(<GraphVisualization key={key++} config={config} onInteract={onInteract} />)
+          } catch {
+            result.push(
+              <pre key={key++} className="bg-gray-200 rounded-md p-3 overflow-x-auto my-2 text-sm font-mono">
+                <code>{raw}</code>
+              </pre>
+            )
+          }
+        } else if (blockLang === 'exercise' && onInteract) {
+          try {
+            const config = JSON.parse(raw)
+            result.push(<InteractiveExercise key={key++} config={config} onInteract={onInteract} />)
+          } catch {
+            result.push(
+              <pre key={key++} className="bg-gray-200 rounded-md p-3 overflow-x-auto my-2 text-sm font-mono">
+                <code>{raw}</code>
+              </pre>
+            )
+          }
+        } else {
+          result.push(
+            <pre key={key++} className="bg-gray-200 rounded-md p-3 overflow-x-auto my-2 text-sm font-mono">
+              <code>{raw}</code>
+            </pre>
+          )
+        }
+
         codeLines = []
+        blockLang = ''
         inCodeBlock = false
       } else {
         inCodeBlock = true
+        blockLang = line.slice(3).trim()
       }
       continue
     }
