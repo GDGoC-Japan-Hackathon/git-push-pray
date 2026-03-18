@@ -12,9 +12,12 @@ database:
 all:
 	@$(MAKE) database & \
 	echo "Waiting for database proxy to be ready..." && \
-	while ! nc -z localhost 5432 2>/dev/null; do sleep 0.5; done && \
+	if command -v nc >/dev/null 2>&1; then \
+		while ! nc -z localhost 5432 2>/dev/null; do sleep 0.5; done; \
+	else \
+		echo "nc not found, waiting 3 seconds instead..." && sleep 3; \
+	fi && \
 	echo "Starting backend and frontend..." && \
 	$(MAKE) back & \
 	$(MAKE) front & \
 	wait
-

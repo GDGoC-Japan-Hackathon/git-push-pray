@@ -53,16 +53,7 @@ chmod +x cloud-sql-proxy
 **インストール (Windows の場合):**
 [公式のダウンロードリンク (x64用)](https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.3/cloud-sql-proxy.x64.exe) から `cloud-sql-proxy.exe` をダウンロードし、`backend/` フォルダに配置してください。
 
-**起動:**
-新しいターミナルタブを開き、以下のコマンドを実行したままにしてください。（バックグラウンドで動作し続けます）
-
-```bash
-make database
-```
-
-これで `localhost:5432` 経由でGCPのデータベースにつながります。
-
-### 4. バックエンド (Go) の起動
+### 4. バックエンド (Go) の `.env` ファイル作成
 
 `.env` ファイルを作成してください（存在しない場合）:
 
@@ -73,32 +64,40 @@ GOOGLE_GENAI_USE_VERTEXAI=TRUE
 DATABASE_URL=postgres://appuser:【ここを置き換える】@localhost:5432/git-push-pray?sslmode=disable
 ```
 
-```bash
-# 依存パッケージのインストール（初回のみ）
-cd backend && go mod download
-
-# アプリケーションの起動
-make back
-```
-
 > [!NOTE]
 > `godotenv` により、`backend/.env` が自動的に読み込まれます。
 
-起動に成功すると `Backend server listening on port 8081` と表示されます。
+### 5. 一括起動 (推奨)
 
-### 5. フロントエンド (React) の起動
-
-新しいターミナルタブを開き、フロントエンドを起動します。
+以下のコマンドひとつで、Cloud SQL Proxy・バックエンド・フロントエンドをまとめて起動できます。
 
 ```bash
-# 依存パッケージのインストール（初回のみ）
-cd frontend && npm install
+# 全サービスを一括起動
+make all
+```
 
-# 開発サーバーの起動
+> [!NOTE]
+> `make all` は内部で `nc` コマンドを使ってDB Proxyの起動を待機します。`nc` がインストールされていない場合は自動的に固定時間の待機にフォールバックします。
+
+### 5a. 個別に起動する場合
+
+各サービスを別々のターミナルで起動することもできます。
+
+```bash
+# ターミナル1: Cloud SQL Auth Proxy
+make database
+
+# ターミナル2: バックエンド (localhost:5432 が利用可能になってから)
+make back
+
+# ターミナル3: フロントエンド
 make front
 ```
 
-ブラウザで `http://localhost:5173` にアクセスすると、アプリケーションを利用できます。
+- `make database` で `localhost:5432` 経由でGCPのデータベースにつながります。
+- `make back` で起動に成功すると `Backend server listening on port 8081` と表示されます。
+- `make front` で `http://localhost:5173` にアクセスできます。
+
 フロントエンドからのAPIリクエスト (`/api/*`) は、Vite のプロキシ設定によって自動的にバックエンド (`http://localhost:8081`) へ転送されます。
 
 ### 6. ローカルでの動作確認
