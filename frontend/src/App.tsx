@@ -12,7 +12,7 @@ import { useAuth } from "./contexts/AuthContext";
 import { readSSEStream, extractJSONStringField } from "./utils/streamParser";
 
 export default function App() {
-  const { chatId } = useParams<{ chatId: string }>();
+  const { chatId } = useParams<{ chatId?: string }>();
   const navigate = useNavigate();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
