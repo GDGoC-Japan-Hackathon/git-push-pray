@@ -236,7 +236,7 @@ func (svc *ChatService) Chat(ctx context.Context, user *model.User, conversation
 
 	resp, err := svc.client.Models.GenerateContent(
 		ctx,
-		"gemini-2.5-flash",
+		"gemini-3-flash-preview",
 		contents,
 		&genai.GenerateContentConfig{
 			SystemInstruction: genai.NewContentFromText(sysPrompt, "user"),
