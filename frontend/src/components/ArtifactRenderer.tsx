@@ -64,9 +64,13 @@ export function ArtifactRenderer({ artifact }: Props) {
   }, [handleMessage])
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(artifact.code)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(artifact.code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
   }
 
   // AIのコードが完全なHTMLドキュメントかどうかを判定

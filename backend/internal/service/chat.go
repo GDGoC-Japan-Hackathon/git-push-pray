@@ -149,24 +149,24 @@ func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conver
 
 	// 全会話履歴をGeminiに渡す
 	// generateUI=true の時だけ最後のartifactコードを含める（トークン節約）
-	var lastArtifactCode string
+	lastArtifactIndex := -1
 	if generateUI {
-		for _, m := range dbMessages {
+		for i, m := range dbMessages {
 			if m.Role == "assistant" && m.ArtifactCode != "" {
-				lastArtifactCode = m.ArtifactCode
+				lastArtifactIndex = i
 			}
 		}
 	}
 
 	var contents []*genai.Content
-	for _, m := range dbMessages {
+	for i, m := range dbMessages {
 		role := m.Role
 		if role == "assistant" {
 			role = "model"
 		}
 		text := m.Content
 		// generateUI=true かつ最後のartifactを持つメッセージにのみコードを付加
-		if generateUI && m.Role == "assistant" && m.ArtifactCode != "" && m.ArtifactCode == lastArtifactCode {
+		if generateUI && i == lastArtifactIndex && m.ArtifactCode != "" {
 			text += fmt.Sprintf("\n\n[前回生成したartifact: %s]\n%s", m.ArtifactTitle, m.ArtifactCode)
 		}
 		contents = append(contents, &genai.Content{
