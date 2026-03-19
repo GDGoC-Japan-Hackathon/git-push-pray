@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { nanoid } from 'nanoid'
-import type { ChatSession, TreeNode } from './types'
+import type { ChatSession, TreeNode, Artifact } from './types'
 
 import { Sidebar } from './components/Sidebar'
 import { Header, type ViewMode } from './components/Header'
@@ -147,7 +147,7 @@ export default function App() {
     }
   }, [activeSessionId, fetchConversationTree])
 
-  const streamResponse = useCallback(async (sessionId: string, response: string) => {
+  const streamResponse = useCallback(async (sessionId: string, response: string, artifact?: Artifact) => {
     const msgId = nanoid()
     setSessions(prev => prev.map(s =>
       s.id === sessionId
@@ -168,6 +168,15 @@ export default function App() {
           : s,
       ))
       await new Promise(r => setTimeout(r, 30 + Math.random() * 40))
+    }
+
+    // ストリーミング完了後にartifactを付与
+    if (artifact) {
+      setSessions(prev => prev.map(s =>
+        s.id === sessionId
+          ? { ...s, messages: s.messages.map(m => m.id === msgId ? { ...m, artifact } : m) }
+          : s,
+      ))
     }
 
     setIsStreaming(false)
@@ -241,7 +250,7 @@ export default function App() {
       // 選択状態をリセット
       setSelectedNodeId(null)
 
-      streamResponse(actualId, data.reply)
+      streamResponse(actualId, data.reply, data.artifact ?? undefined)
     } catch (err) {
       console.error('Failed to fetch from backend:', err)
       const fallbackResponse = '申し訳ありません。バックエンドへの接続に失敗しました。ローカルでGoサーバーが起動しているか確認してください。'

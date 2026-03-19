@@ -13,11 +13,17 @@ type QuestionNode struct {
 	Summary string `json:"summary"`
 }
 
+type Artifact struct {
+	Title string `json:"title"`
+	Code  string `json:"code"`
+}
+
 type ChatResponse struct {
 	ConversationID string         `json:"conversation_id"`
 	Reply          string         `json:"reply"`
 	AnswerSummary  string         `json:"answer_summary"`
 	Questions      []QuestionNode `json:"questions"`
+	Artifact       *Artifact      `json:"artifact,omitempty"`
 }
 
 type HistoryMessage struct {

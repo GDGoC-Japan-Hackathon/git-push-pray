@@ -1,7 +1,13 @@
+export interface Artifact {
+  title: string
+  code: string
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  artifact?: Artifact
 }
 
 export interface ChatSession {
