@@ -98,7 +98,7 @@ export default function App() {
       }
     }
     fetchSessions()
-  }, [user, apiBase, fetchConversationTree])
+  }, [user, apiBase])
 
   const handleNewChat = useCallback(() => {
     const session: ChatSession = {

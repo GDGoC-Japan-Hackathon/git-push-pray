@@ -131,12 +131,21 @@ func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conver
 		}
 	}
 
-	// 回答済みチェック
+	// 回答済みチェック（ノードが同じ会話に属するかも検証）
 	if parentNodeID != "" {
 		pID, err := uuid.Parse(parentNodeID)
 		if err == nil {
-			existingNode, _ := repository.GetTreeNodeByID(pID)
-			if existingNode != nil && existingNode.Answer != "" {
+			existingNode, err := repository.GetTreeNodeByID(pID)
+			if err != nil {
+				if err == gorm.ErrRecordNotFound {
+					return nil, fmt.Errorf("invalid parent node")
+				}
+				return nil, err
+			}
+			if existingNode.ConversationID != conv.ID {
+				return nil, fmt.Errorf("invalid parent node")
+			}
+			if existingNode.Answer != "" {
 				return nil, fmt.Errorf("this node has already been answered")
 			}
 		}
@@ -288,12 +297,13 @@ func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conver
 		fullText := accumulated.String()
 		var parsed geminiReply
 		if err := json.Unmarshal([]byte(fullText), &parsed); err != nil {
+			log.Printf("Gemini response parse error: %v, raw: %s", err, fullText)
 			parsed.Reply = fullText
 		}
 
 		var activeParentNodeID = parentNodeID
 
-	// 初回の場合は、まず「テーマ」をルートノードとして作成する
+		// 初回の場合は、まず「テーマ」をルートノードとして作成する
 		if isNewConversation {
 			rootNode := &model.ConversationTreeNode{
 				ID:             uuid.New(),
@@ -303,18 +313,22 @@ func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conver
 				Text:           message,
 				Answer:         "",
 			}
-			if err := repository.CreateTreeNode(rootNode); err == nil {
+			if err := repository.CreateTreeNode(rootNode); err != nil {
+				log.Printf("failed to create root tree node: %v", err)
+			} else {
 				activeParentNodeID = rootNode.ID.String()
 			}
 		} else if parentNodeID != "" {
-		// 親ノードの answer を更新
+			// 親ノードの answer を更新
 			pID, err := uuid.Parse(parentNodeID)
 			if err == nil {
-				_ = repository.UpdateTreeNodeAnswer(pID, parsed.AnswerSummary, userMsg.ID)
+				if err := repository.UpdateTreeNodeAnswer(pID, conv.ID, parsed.AnswerSummary, userMsg.ID); err != nil {
+					log.Printf("failed to update tree node answer (nodeID=%s): %v", pID, err)
+				}
 			}
 		}
 
-	// DBに保存（assistant reply）
+		// DBに保存（assistant reply）
 		var artifactTitle, artifactCode string
 		if parsed.Artifact != nil && parsed.Artifact.Code != "" {
 			artifactTitle = parsed.Artifact.Title
@@ -387,15 +401,19 @@ func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conver
 	return ch, nil
 }
 
-func (svc *ChatService) GetConversationTree(conversationIDStr string) *model.ConversationTreeResponse {
+func (svc *ChatService) GetConversationTree(conversationIDStr string, userID uuid.UUID) (*model.ConversationTreeResponse, error) {
 	convID, err := uuid.Parse(conversationIDStr)
 	if err != nil {
-		return &model.ConversationTreeResponse{Nodes: []model.TreeNodeResponse{}}
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	if _, err := repository.GetConversationByIDAndUserID(convID, userID); err != nil {
+		return nil, err
 	}
 
 	dbNodes, err := repository.GetTreeNodesByConversationID(convID)
 	if err != nil {
-		return &model.ConversationTreeResponse{Nodes: []model.TreeNodeResponse{}}
+		return nil, err
 	}
 
 	result := make([]model.TreeNodeResponse, 0, len(dbNodes))
@@ -416,7 +434,7 @@ func (svc *ChatService) GetConversationTree(conversationIDStr string) *model.Con
 			Type:     nodeType,
 		})
 	}
-	return &model.ConversationTreeResponse{Nodes: result}
+	return &model.ConversationTreeResponse{Nodes: result}, nil
 }
 
 func (svc *ChatService) History(userID uuid.UUID, conversationIDStr string) (*model.HistoryResponse, error) {
