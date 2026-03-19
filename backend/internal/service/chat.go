@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/model"
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/repository"
@@ -12,6 +13,12 @@ import (
 	"google.golang.org/genai"
 	"gorm.io/gorm"
 )
+
+// StreamEvent はSSEで送信されるイベント
+type StreamEvent struct {
+	Type string // "chunk" or "done" or "error"
+	Data string // JSON string
+}
 
 const systemInstruction = `あなたは「好奇心旺盛で学ぶ意欲が高い生徒（後輩）」のペルソナを持つAIです。
 ユーザーはあなたに様々なトピックを教える「先生」です。
@@ -98,7 +105,7 @@ func EnsureUser(firebaseUID, name, email string) (*model.User, error) {
 	return repository.FindOrCreateUser(firebaseUID, name, email)
 }
 
-func (svc *ChatService) Chat(ctx context.Context, user *model.User, conversationIDStr, message, parentNodeID, answeringQuestion string, generateUI bool) (*model.ChatResponse, error) {
+func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conversationIDStr, message, parentNodeID, answeringQuestion string, generateUI bool) (<-chan StreamEvent, error) {
 	var conv *model.Conversation
 	isNewConversation := false
 
@@ -234,129 +241,150 @@ func (svc *ChatService) Chat(ctx context.Context, user *model.User, conversation
 		sysPrompt += artifactInstruction
 	}
 
-	resp, err := svc.client.Models.GenerateContent(
-		ctx,
-		"gemini-3-flash-preview",
-		contents,
-		&genai.GenerateContentConfig{
-			SystemInstruction: genai.NewContentFromText(sysPrompt, "user"),
-			ResponseMIMEType:  "application/json",
-			ResponseSchema:    responseSchema,
-			SafetySettings: []*genai.SafetySetting{
-				{Category: genai.HarmCategoryHarassment, Threshold: genai.HarmBlockThresholdBlockOnlyHigh},
-				{Category: genai.HarmCategoryHateSpeech, Threshold: genai.HarmBlockThresholdBlockOnlyHigh},
-				{Category: genai.HarmCategorySexuallyExplicit, Threshold: genai.HarmBlockThresholdBlockOnlyHigh},
-				{Category: genai.HarmCategoryDangerousContent, Threshold: genai.HarmBlockThresholdBlockOnlyHigh},
-			},
+	config := &genai.GenerateContentConfig{
+		SystemInstruction: genai.NewContentFromText(sysPrompt, "user"),
+		ResponseMIMEType:  "application/json",
+		ResponseSchema:    responseSchema,
+		SafetySettings: []*genai.SafetySetting{
+			{Category: genai.HarmCategoryHarassment, Threshold: genai.HarmBlockThresholdBlockOnlyHigh},
+			{Category: genai.HarmCategoryHateSpeech, Threshold: genai.HarmBlockThresholdBlockOnlyHigh},
+			{Category: genai.HarmCategorySexuallyExplicit, Threshold: genai.HarmBlockThresholdBlockOnlyHigh},
+			{Category: genai.HarmCategoryDangerousContent, Threshold: genai.HarmBlockThresholdBlockOnlyHigh},
 		},
-	)
-	if err != nil {
-		return nil, err
 	}
 
-	var parsed geminiReply
-	if err := json.Unmarshal([]byte(resp.Text()), &parsed); err != nil {
-		// フォールバック: plain textをreplyとして扱う
-		parsed.Reply = resp.Text()
-	}
-
-	// DBに保存（user message）
+	// DBに保存（user message）- ストリーム開始前に保存
 	userMsg, err := repository.CreateMessage(conv.ID, "user", message, 0, "", "")
 	if err != nil {
 		return nil, err
 	}
 
-	var activeParentNodeID = parentNodeID
+	ch := make(chan StreamEvent, 16)
+
+	go func() {
+		defer close(ch)
+
+		var accumulated strings.Builder
+		chunkCount := 0
+
+		for resp, err := range svc.client.Models.GenerateContentStream(ctx, "gemini-3-flash-preview", contents, config) {
+			if err != nil {
+				log.Printf("Stream error: %v", err)
+				errJSON, _ := json.Marshal(map[string]string{"error": err.Error()})
+				ch <- StreamEvent{Type: "error", Data: string(errJSON)}
+				return
+			}
+			chunk := resp.Text()
+			accumulated.WriteString(chunk)
+			chunkCount++
+
+			chunkData, _ := json.Marshal(map[string]string{"text": accumulated.String()})
+			ch <- StreamEvent{Type: "chunk", Data: string(chunkData)}
+		}
+
+		log.Printf("Stream completed: %d chunks, %d bytes", chunkCount, accumulated.Len())
+
+		// ストリーム完了 → パース & DB保存
+		fullText := accumulated.String()
+		var parsed geminiReply
+		if err := json.Unmarshal([]byte(fullText), &parsed); err != nil {
+			parsed.Reply = fullText
+		}
+
+		var activeParentNodeID = parentNodeID
 
 	// 初回の場合は、まず「テーマ」をルートノードとして作成する
-	if isNewConversation {
-		rootNode := &model.ConversationTreeNode{
-			ID:             uuid.New(),
-			ConversationID: conv.ID,
-			MessageID:      userMsg.ID,
-			ParentNodeID:   nil,
-			Text:           message,
-			Answer:         "",
-		}
-		if err := repository.CreateTreeNode(rootNode); err == nil {
-			activeParentNodeID = rootNode.ID.String()
-		}
-	} else if parentNodeID != "" {
+		if isNewConversation {
+			rootNode := &model.ConversationTreeNode{
+				ID:             uuid.New(),
+				ConversationID: conv.ID,
+				MessageID:      userMsg.ID,
+				ParentNodeID:   nil,
+				Text:           message,
+				Answer:         "",
+			}
+			if err := repository.CreateTreeNode(rootNode); err == nil {
+				activeParentNodeID = rootNode.ID.String()
+			}
+		} else if parentNodeID != "" {
 		// 親ノードの answer を更新
-		pID, err := uuid.Parse(parentNodeID)
-		if err == nil {
-			_ = repository.UpdateTreeNodeAnswer(pID, parsed.AnswerSummary, userMsg.ID)
-		}
-	}
-
-	// DBに保存（assistant reply）
-	var artifactTitle, artifactCode string
-	if parsed.Artifact != nil && parsed.Artifact.Code != "" {
-		artifactTitle = parsed.Artifact.Title
-		artifactCode = parsed.Artifact.Code
-	}
-
-	aiMsg, err := repository.CreateMessage(conv.ID, "assistant", parsed.Reply, 0, artifactTitle, artifactCode)
-	if err != nil {
-		return nil, err
-	}
-
-	// 新しい質問ノードを作成
-	newNodes := make([]model.QuestionNode, 0, len(parsed.Questions))
-	for _, q := range parsed.Questions {
-		var pID *uuid.UUID
-		if activeParentNodeID != "" {
-			parsedPID, err := uuid.Parse(activeParentNodeID)
+			pID, err := uuid.Parse(parentNodeID)
 			if err == nil {
-				pID = &parsedPID
+				_ = repository.UpdateTreeNodeAnswer(pID, parsed.AnswerSummary, userMsg.ID)
 			}
 		}
 
-		nodeType := q.Type
-		if nodeType == "" {
-			nodeType = "question"
+	// DBに保存（assistant reply）
+		var artifactTitle, artifactCode string
+		if parsed.Artifact != nil && parsed.Artifact.Code != "" {
+			artifactTitle = parsed.Artifact.Title
+			artifactCode = parsed.Artifact.Code
 		}
 
-		node := &model.ConversationTreeNode{
-			ID:             uuid.New(),
-			ConversationID: conv.ID,
-			MessageID:      aiMsg.ID,
-			ParentNodeID:   pID,
-			Text:           q.Summary,
-			NodeType:       nodeType,
-			Answer:         "",
-		}
-		if err := repository.CreateTreeNode(node); err != nil {
-			log.Printf("failed to create conversation tree node: %v", err)
-			continue
+		aiMsg, err := repository.CreateMessage(conv.ID, "assistant", parsed.Reply, 0, artifactTitle, artifactCode)
+		if err != nil {
+			log.Printf("failed to save assistant message: %v", err)
+			return
 		}
 
-		newNodes = append(newNodes, model.QuestionNode{
-			ID:      node.ID.String(),
-			Summary: node.Text,
-			Type:    nodeType,
-		})
-	}
+		newNodes := make([]model.QuestionNode, 0, len(parsed.Questions))
+		for _, q := range parsed.Questions {
+			var pID *uuid.UUID
+			if activeParentNodeID != "" {
+				parsedPID, err := uuid.Parse(activeParentNodeID)
+				if err == nil {
+					pID = &parsedPID
+				}
+			}
 
-	if err := repository.TouchConversation(conv.ID); err != nil {
-		return nil, err
-	}
+			nodeType := q.Type
+			if nodeType == "" {
+				nodeType = "question"
+			}
 
-	var artifact *model.Artifact
-	if artifactCode != "" {
-		artifact = &model.Artifact{
-			Title: artifactTitle,
-			Code:  artifactCode,
+			node := &model.ConversationTreeNode{
+				ID:             uuid.New(),
+				ConversationID: conv.ID,
+				MessageID:      aiMsg.ID,
+				ParentNodeID:   pID,
+				Text:           q.Summary,
+				NodeType:       nodeType,
+				Answer:         "",
+			}
+			if err := repository.CreateTreeNode(node); err != nil {
+				log.Printf("failed to create conversation tree node: %v", err)
+				continue
+			}
+
+			newNodes = append(newNodes, model.QuestionNode{
+				ID:      node.ID.String(),
+				Summary: node.Text,
+				Type:    nodeType,
+			})
 		}
-	}
 
-	return &model.ChatResponse{
-		ConversationID: conv.ID.String(),
-		Reply:          parsed.Reply,
-		AnswerSummary:  parsed.AnswerSummary,
-		Questions:      newNodes,
-		Artifact:       artifact,
-	}, nil
+		_ = repository.TouchConversation(conv.ID)
+
+		var artifact *model.Artifact
+		if artifactCode != "" {
+			artifact = &model.Artifact{
+				Title: artifactTitle,
+				Code:  artifactCode,
+			}
+		}
+
+		doneResp := &model.ChatResponse{
+			ConversationID: conv.ID.String(),
+			Reply:          parsed.Reply,
+			AnswerSummary:  parsed.AnswerSummary,
+			Questions:      newNodes,
+			Artifact:       artifact,
+		}
+		doneData, _ := json.Marshal(doneResp)
+		ch <- StreamEvent{Type: "done", Data: string(doneData)}
+	}()
+
+	return ch, nil
 }
 
 func (svc *ChatService) GetConversationTree(conversationIDStr string) *model.ConversationTreeResponse {

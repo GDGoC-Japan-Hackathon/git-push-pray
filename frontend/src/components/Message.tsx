@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+import { Code } from "lucide-react";
 import type { ChatMessage } from "../types";
 import { renderMarkdown } from "../utils/markdown";
 import { ArtifactRenderer } from "./ArtifactRenderer";
@@ -10,6 +12,14 @@ interface Props {
 
 export function Message({ message }: Props) {
   const isUser = message.role === "user";
+  const codeEndRef = useRef<HTMLPreElement>(null);
+
+  // ストリーミング中のコードを自動スクロール
+  useEffect(() => {
+    if (message.streamingCode && codeEndRef.current) {
+      codeEndRef.current.scrollTop = codeEndRef.current.scrollHeight;
+    }
+  }, [message.streamingCode]);
 
   return (
     <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
@@ -31,7 +41,24 @@ export function Message({ message }: Props) {
             <div className="space-y-1">{renderMarkdown(message.content)}</div>
           )}
         </div>
-        {!isUser && message.artifact && (
+        {/* ストリーミング中: コードをリアルタイム表示 */}
+        {!isUser && message.isStreaming && message.streamingCode && (
+          <div className="mt-3 rounded-xl border border-purple-200 overflow-hidden bg-white shadow-sm">
+            <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 border-b border-purple-200">
+              <Code size={14} className="text-purple-500" />
+              <span className="text-xs font-medium text-purple-600">コード生成中...</span>
+              <span className="ml-auto inline-block w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+            </div>
+            <pre
+              ref={codeEndRef}
+              className="p-3 text-xs overflow-auto bg-gray-900 text-gray-100 max-h-[400px]"
+            >
+              <code>{message.streamingCode}</code>
+            </pre>
+          </div>
+        )}
+        {/* 完了後: iframeプレビュー */}
+        {!isUser && !message.isStreaming && message.artifact && (
           <ArtifactRenderer artifact={message.artifact} />
         )}
       </div>

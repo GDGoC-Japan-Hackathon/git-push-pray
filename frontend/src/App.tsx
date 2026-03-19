@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { nanoid } from 'nanoid'
-import type { ChatSession, TreeNode, Artifact } from './types'
+import type { ChatSession, TreeNode } from './types'
 
 import { Sidebar } from './components/Sidebar'
 import { Header, type ViewMode } from './components/Header'
@@ -8,6 +8,7 @@ import { ChatArea } from './components/ChatArea'
 import { ConversationTreeView } from './components/ConversationTreeView'
 import { PromptInput } from './components/PromptInput'
 import { useAuth } from './contexts/AuthContext'
+import { readSSEStream, extractJSONStringField } from './utils/streamParser'
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -149,41 +150,6 @@ export default function App() {
     }
   }, [activeSessionId, fetchConversationTree])
 
-  const streamResponse = useCallback(async (sessionId: string, response: string, artifact?: Artifact) => {
-    const msgId = nanoid()
-    setSessions(prev => prev.map(s =>
-      s.id === sessionId
-        ? { ...s, messages: [...s.messages, { id: msgId, role: 'assistant' as const, content: '' }] }
-        : s,
-    ))
-
-    const words = response.split(' ')
-    for (let i = 0; i < words.length; i++) {
-      const partial = words.slice(0, i + 1).join(' ')
-      setSessions(prev => prev.map(s =>
-        s.id === sessionId
-          ? {
-              ...s,
-              messages: s.messages.map(m => m.id === msgId ? { ...m, content: partial } : m),
-              lastMessage: partial.slice(0, 60) + (partial.length > 60 ? '...' : ''),
-            }
-          : s,
-      ))
-      await new Promise(r => setTimeout(r, 30 + Math.random() * 40))
-    }
-
-    // ストリーミング完了後にartifactを付与
-    if (artifact) {
-      setSessions(prev => prev.map(s =>
-        s.id === sessionId
-          ? { ...s, messages: s.messages.map(m => m.id === msgId ? { ...m, artifact } : m) }
-          : s,
-      ))
-    }
-
-    setIsStreaming(false)
-  }, [])
-
   const handleSubmit = useCallback(async (text: string) => {
     if (isStreaming) return
     setIsStreaming(true)
@@ -202,6 +168,7 @@ export default function App() {
       sessionId = session.id
     }
 
+    const msgId = nanoid()
     setSessions(prev => prev.map(s =>
       s.id === sessionId
         ? {
@@ -209,7 +176,11 @@ export default function App() {
             title: s.messages.length === 0 ? text.slice(0, 30) : s.title,
             lastMessage: text,
             timestamp: new Date().toISOString(),
-            messages: [...s.messages, { id: nanoid(), role: 'user' as const, content: text }],
+            messages: [
+              ...s.messages,
+              { id: nanoid(), role: 'user' as const, content: text },
+              { id: msgId, role: 'assistant' as const, content: '', isStreaming: true },
+            ],
           }
         : s,
     ))
@@ -237,31 +208,93 @@ export default function App() {
       })
       if (!resp.ok) throw new Error(`API error: ${resp.status}`)
 
-      const data = await resp.json()
-      const actualId = data.conversation_id || sessionId
-      if (actualId !== sessionId) {
-        setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, id: actualId } : s))
-        setActiveSessionId(actualId)
+      // SSEストリームを読み取り、リアルタイムで表示を更新
+      let doneProcessed = false
+      await readSSEStream(resp, async (event, data) => {
+        if (event === 'chunk') {
+          const { text: accumulated } = JSON.parse(data) as { text: string }
+          const reply = extractJSONStringField(accumulated, 'reply') ?? ''
+          const code = extractJSONStringField(accumulated, 'code')
+
+          setSessions(prev => prev.map(s =>
+            s.id === sessionId
+              ? {
+                  ...s,
+                  messages: s.messages.map(m =>
+                    m.id === msgId
+                      ? { ...m, content: reply, streamingCode: code ?? undefined }
+                      : m
+                  ),
+                  lastMessage: reply.slice(0, 60) + (reply.length > 60 ? '...' : ''),
+                }
+              : s,
+          ))
+        } else if (event === 'done') {
+          doneProcessed = true
+          const doneData = JSON.parse(data)
+          const actualId: string = doneData.conversation_id || sessionId
+          if (actualId !== sessionId) {
+            setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, id: actualId } : s))
+            setActiveSessionId(actualId)
+          }
+
+          // 最終データでメッセージを確定（streaming解除 + artifact付与）
+          const targetId = actualId !== sessionId ? actualId : sessionId
+          setSessions(prev => prev.map(s =>
+            s.id === targetId
+              ? {
+                  ...s,
+                  messages: s.messages.map(m =>
+                    m.id === msgId
+                      ? {
+                          ...m,
+                          content: doneData.reply,
+                          isStreaming: false,
+                          streamingCode: undefined,
+                          artifact: doneData.artifact ?? undefined,
+                        }
+                      : m
+                  ),
+                }
+              : s,
+          ))
+
+          // 会話ツリーを更新
+          const questionIds = new Set<string>((doneData.questions ?? []).map((q: { id: string }) => q.id))
+          const updatedNodes = await fetchConversationTree(actualId)
+          const newQuestions = updatedNodes.filter(n => questionIds.has(n.id))
+          setLatestQuestions(newQuestions)
+        } else if (event === 'error') {
+          console.error('Stream error:', data)
+        }
+      })
+
+      // doneイベントが来なかった場合のフォールバック
+      if (!doneProcessed) {
+        console.warn('SSE stream ended without done event')
       }
 
-      // 会話ツリーをサーバーから再取得し、APIレスポンスのquestionノードIDで絞り込む
-      const questionIds = new Set<string>((data.questions ?? []).map((q: { id: string }) => q.id))
-      const updatedNodes = await fetchConversationTree(actualId)
-      const newQuestions = updatedNodes.filter(n => questionIds.has(n.id))
-      setLatestQuestions(newQuestions)
-
-      // 選択状態・ビジュアライズモードをリセット
       setSelectedNodeId(null)
       setGenerateUI(false)
-
-      streamResponse(actualId, data.reply, data.artifact ?? undefined)
+      setIsStreaming(false)
     } catch (err) {
       console.error('Failed to fetch from backend:', err)
-      const fallbackResponse = '申し訳ありません。バックエンドへの接続に失敗しました。ローカルでGoサーバーが起動しているか確認してください。'
+      setSessions(prev => prev.map(s =>
+        s.id === sessionId
+          ? {
+              ...s,
+              messages: s.messages.map(m =>
+                m.id === msgId
+                  ? { ...m, content: 'バックエンドへの接続に失敗しました。', isStreaming: false }
+                  : m
+              ),
+            }
+          : s,
+      ))
       setGenerateUI(false)
-      streamResponse(sessionId, fallbackResponse)
+      setIsStreaming(false)
     }
-  }, [isStreaming, activeSessionId, selectedNodeId, selectedNode, generateUI, streamResponse, user, apiBase, fetchConversationTree])
+  }, [isStreaming, activeSessionId, selectedNodeId, selectedNode, generateUI, user, apiBase, fetchConversationTree])
 
   const handleNodeSelect = useCallback((id: string) => {
     setSelectedNodeId(prev => prev === id ? null : id) // 再クリックで選択解除

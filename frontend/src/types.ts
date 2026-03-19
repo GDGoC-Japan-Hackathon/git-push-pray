@@ -8,6 +8,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   artifact?: Artifact
+  isStreaming?: boolean       // ストリーミング中
+  streamingCode?: string     // 生成中のartifactコード
 }
 
 export interface ChatSession {
