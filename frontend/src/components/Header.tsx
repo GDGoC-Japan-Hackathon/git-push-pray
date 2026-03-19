@@ -9,6 +9,7 @@ interface Props {
   onMenuClick: () => void;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  hideToggle?: boolean;
 }
 
 export function Header({
@@ -16,6 +17,7 @@ export function Header({
   onMenuClick,
   viewMode,
   onViewModeChange,
+  hideToggle,
 }: Props) {
   return (
     <header className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white shrink-0">
@@ -38,24 +40,26 @@ export function Header({
         </span>
       )}
       <div className="ml-auto flex items-center gap-2">
-        <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-          <button
-            onClick={() => onViewModeChange("chat")}
-            className={`p-2 transition-colors ${viewMode === "chat" ? "bg-blue-50 text-blue-600" : "text-gray-500 hover:bg-gray-50"}`}
-            aria-label="チャット表示"
-            title="チャット"
-          >
-            <MessageSquareIcon size={16} />
-          </button>
-          <button
-            onClick={() => onViewModeChange("tree")}
-            className={`p-2 transition-colors ${viewMode === "tree" ? "bg-blue-50 text-blue-600" : "text-gray-500 hover:bg-gray-50"}`}
-            aria-label="会話ツリー表示"
-            title="会話ツリー"
-          >
-            <NetworkIcon size={16} />
-          </button>
-        </div>
+        {!hideToggle && (
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+            <button
+              onClick={() => onViewModeChange("chat")}
+              className={`p-2 transition-colors ${viewMode === "chat" ? "bg-blue-50 text-blue-600" : "text-gray-500 hover:bg-gray-50"}`}
+              aria-label="チャット表示"
+              title="チャット"
+            >
+              <MessageSquareIcon size={16} />
+            </button>
+            <button
+              onClick={() => onViewModeChange("tree")}
+              className={`p-2 transition-colors ${viewMode === "tree" ? "bg-blue-50 text-blue-600" : "text-gray-500 hover:bg-gray-50"}`}
+              aria-label="会話ツリー表示"
+              title="会話ツリー"
+            >
+              <NetworkIcon size={16} />
+            </button>
+          </div>
+        )}
         <LoginButton />
       </div>
     </header>

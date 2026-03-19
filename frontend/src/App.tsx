@@ -11,11 +11,16 @@ import { PromptInput } from "./components/PromptInput";
 import { useAuth } from "./contexts/AuthContext";
 import { readSSEStream, extractJSONStringField } from "./utils/streamParser";
 
-function getUnansweredLeaves(nodes: TreeNode[]): TreeNode[] {
+// 直前のAI返信で生成された質問だけを返す（ツリー末尾の同一親グループ）
+function getLatestQuestionGroup(nodes: TreeNode[]): TreeNode[] {
   const parentIds = new Set(nodes.map((n) => n.parentId).filter(Boolean));
-  return nodes.filter(
-    (n) => n.type === "question" && n.parentId !== "" && n.answer === "" && !parentIds.has(n.id)
+  const leaves = nodes.filter(
+    (n) => n.parentId !== "" && n.answer === "" && !parentIds.has(n.id)
   );
+  if (leaves.length === 0) return [];
+  // ノードはcreatedAt順で返るので、末尾のノードの親と同じ親を持つグループが最新
+  const lastParentId = leaves[leaves.length - 1].parentId;
+  return leaves.filter((n) => n.parentId === lastParentId);
 }
 
 export default function App() {
@@ -33,6 +38,7 @@ export default function App() {
   const [treeNodes, setTreeNodes] = useState<Record<string, TreeNode[]>>({});
   const [latestQuestions, setLatestQuestions] = useState<TreeNode[]>([]);
   const [generateUI, setGenerateUI] = useState(false);
+  const [freeInputMode, setFreeInputMode] = useState(false);
   const { user, loading } = useAuth();
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
@@ -121,12 +127,14 @@ export default function App() {
             title: string;
             last_message: string;
             updated_at?: string;
+            phase?: string;
           }) => ({
             id: s.conversation_id,
             title: s.title,
             lastMessage: s.last_message,
             timestamp: s.updated_at || new Date().toISOString(),
             messages: [],
+            phase: (s.phase || "teaching") as "init" | "teaching",
           })
         );
         setSessions(fetched);
@@ -146,11 +154,15 @@ export default function App() {
           );
           if (histResp.ok) {
             const histData = await histResp.json();
+            const histPhase = (histData.phase || "teaching") as
+              | "init"
+              | "teaching";
             setSessions((prev) =>
               prev.map((s) =>
                 s.id === targetId
                   ? {
                       ...s,
+                      phase: histPhase,
                       messages: histData.messages.map(
                         (m: {
                           role: string;
@@ -169,7 +181,7 @@ export default function App() {
             );
           }
           const nodes = await fetchConversationTree(targetId);
-          setLatestQuestions(getUnansweredLeaves(nodes));
+          setLatestQuestions(getLatestQuestionGroup(nodes));
         }
       } catch (err) {
         console.error("Failed to fetch sessions:", err);
@@ -183,6 +195,7 @@ export default function App() {
     setActiveSessionId(null);
     setSelectedNodeId(null);
     setLatestQuestions([]);
+    setFreeInputMode(false);
     setSidebarOpen(false);
     navigate("/");
   }, [navigate]);
@@ -198,11 +211,13 @@ export default function App() {
         );
         if (!resp.ok) return;
         const data = await resp.json();
+        const histPhase = (data.phase || "teaching") as "init" | "teaching";
         setSessions((prev) =>
           prev.map((s) =>
             s.id === sessionId
               ? {
                   ...s,
+                  phase: histPhase,
                   messages: data.messages.map(
                     (m: {
                       role: string;
@@ -233,8 +248,11 @@ export default function App() {
       setLatestQuestions([]);
       setSidebarOpen(false);
       navigate(`/${id}`);
-      const [, nodes] = await Promise.all([fetchHistory(id), fetchConversationTree(id)]);
-      setLatestQuestions(getUnansweredLeaves(nodes));
+      const [, nodes] = await Promise.all([
+        fetchHistory(id),
+        fetchConversationTree(id),
+      ]);
+      setLatestQuestions(getLatestQuestionGroup(nodes));
     },
     [fetchHistory, fetchConversationTree, navigate]
   );
@@ -262,6 +280,7 @@ export default function App() {
           lastMessage: text,
           timestamp: new Date().toISOString(),
           messages: [],
+          phase: "init",
         };
         setSessions((prev) => [session, ...prev]);
         setActiveSessionId(session.id);
@@ -300,14 +319,19 @@ export default function App() {
           return;
         }
 
+        const currentSession = sessions.find((s) => s.id === sessionId);
+        const isInitPhase = !currentSession || currentSession.phase === "init";
+
         const body: Record<string, string | boolean> = {
           user_id: user.uid,
           conversation_id: sessionId,
           message: text,
         };
-        if (selectedNodeId) body.parent_node_id = selectedNodeId;
-        if (selectedNode) body.answering_question = selectedNode.text;
-        if (generateUI) body.generate_ui = true;
+        if (!isInitPhase && selectedNodeId)
+          body.parent_node_id = selectedNodeId;
+        if (!isInitPhase && selectedNode)
+          body.answering_question = selectedNode.text;
+        if (!isInitPhase && generateUI) body.generate_ui = true;
 
         const resp = await fetch(`${apiBase}/api/chat`, {
           method: "POST",
@@ -351,6 +375,8 @@ export default function App() {
             doneProcessed = true;
             const doneData = JSON.parse(data);
             const actualId: string = doneData.conversation_id || sessionId;
+            const donePhase: "init" | "teaching" = doneData.phase || "teaching";
+
             if (actualId !== sessionId) {
               setSessions((prev) =>
                 prev.map((s) =>
@@ -361,13 +387,18 @@ export default function App() {
               navigate(`/${actualId}`, { replace: true });
             }
 
-            // 最終データでメッセージを確定（streaming解除 + artifact付与）
+            // 最終データでメッセージを確定（streaming解除 + artifact付与）+ phase更新
             const targetId = actualId !== sessionId ? actualId : sessionId;
             setSessions((prev) =>
               prev.map((s) =>
                 s.id === targetId
                   ? {
                       ...s,
+                      phase: donePhase,
+                      // テーマ決定でteachingに遷移した場合、タイトルも更新
+                      ...(donePhase === "teaching" && s.phase === "init"
+                        ? { title: doneData.title || s.title }
+                        : {}),
                       messages: s.messages.map((m) =>
                         m.id === msgId
                           ? {
@@ -384,15 +415,20 @@ export default function App() {
               )
             );
 
-            // 会話ツリーを更新
-            const questionIds = new Set<string>(
-              (doneData.questions ?? []).map((q: { id: string }) => q.id)
-            );
-            const updatedNodes = await fetchConversationTree(actualId);
-            const newQuestions = updatedNodes.filter((n) =>
-              questionIds.has(n.id)
-            );
-            setLatestQuestions(newQuestions);
+            // initフェーズ中は質問カードやツリー不要
+            if (donePhase === "init") {
+              setLatestQuestions([]);
+            } else {
+              // 会話ツリーを更新
+              const questionIds = new Set<string>(
+                (doneData.questions ?? []).map((q: { id: string }) => q.id)
+              );
+              const updatedNodes = await fetchConversationTree(actualId);
+              const newQuestions = updatedNodes.filter((n) =>
+                questionIds.has(n.id)
+              );
+              setLatestQuestions(newQuestions);
+            }
           } else if (event === "error") {
             console.error("Stream error:", data);
             doneProcessed = true;
@@ -446,6 +482,7 @@ export default function App() {
 
         setSelectedNodeId(null);
         setGenerateUI(false);
+        setFreeInputMode(false);
         setIsStreaming(false);
       } catch (err) {
         console.error("Failed to fetch from backend:", err);
@@ -481,6 +518,7 @@ export default function App() {
       apiBase,
       fetchConversationTree,
       navigate,
+      sessions,
     ]
   );
 
@@ -492,6 +530,7 @@ export default function App() {
   const handleQuestionCardSelect = useCallback((id: string) => {
     setSelectedNodeId(id);
     setLatestQuestions([]);
+    setFreeInputMode(false);
   }, []);
 
   // 質問カードのvisualizeクリック → ノード選択 + ビジュアライズモードON
@@ -505,6 +544,15 @@ export default function App() {
   const handleToggleVisualize = useCallback(() => {
     setGenerateUI((prev) => !prev);
   }, []);
+
+  // 自分の質問を追加（自由入力モード）
+  const handleFreeInput = useCallback(() => {
+    setSelectedNodeId(null);
+    setLatestQuestions([]);
+    setFreeInputMode(true);
+  }, []);
+
+  const isInitPhase = activeSession?.phase === "init";
 
   return (
     <div className="flex h-screen bg-white overflow-hidden">
@@ -523,31 +571,35 @@ export default function App() {
           onMenuClick={() => setSidebarOpen(true)}
           viewMode={viewMode}
           onViewModeChange={handleViewModeChange}
+          hideToggle={isInitPhase || !activeSession}
         />
 
         {/* PC: 横並び / モバイル: viewModeで切り替え */}
         <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
           <div
-            className={`flex flex-col flex-1 min-h-0 min-w-0 ${viewMode === "tree" ? "hidden md:flex" : "flex"}`}
+            className={`flex flex-col flex-1 min-h-0 min-w-0 ${!isInitPhase && viewMode === "tree" ? "hidden md:flex" : "flex"}`}
           >
             <ChatArea
               session={activeSession}
               isStreaming={isStreaming}
               onSuggestionClick={user ? handleSubmit : undefined}
-              latestQuestions={latestQuestions}
+              latestQuestions={isInitPhase ? [] : latestQuestions}
               onQuestionCardSelect={handleQuestionCardSelect}
               onVisualizeClick={handleVisualizeClick}
+              onFreeInput={handleFreeInput}
             />
           </div>
-          <div
-            className={`flex flex-col flex-1 min-h-0 border-l border-gray-200 ${viewMode === "chat" ? "hidden" : "flex"}`}
-          >
-            <ConversationTreeView
-              treeNodes={activeTreeNodes}
-              selectedNodeId={selectedNodeId}
-              onNodeSelect={handleNodeSelect}
-            />
-          </div>
+          {!isInitPhase && (
+            <div
+              className={`flex flex-col flex-1 min-h-0 border-l border-gray-200 ${viewMode === "chat" ? "hidden" : "flex"}`}
+            >
+              <ConversationTreeView
+                treeNodes={activeTreeNodes}
+                selectedNodeId={selectedNodeId}
+                onNodeSelect={handleNodeSelect}
+              />
+            </div>
+          )}
         </div>
 
         {loading ? (
@@ -556,15 +608,28 @@ export default function App() {
             <span className="text-gray-500 text-sm">読み込み中...</span>
           </div>
         ) : user ? (
-          <div className={viewMode === "tree" ? "hidden md:block" : ""}>
+          <div
+            className={
+              !isInitPhase && viewMode === "tree" ? "hidden md:block" : ""
+            }
+          >
             <PromptInput
               isStreaming={isStreaming}
               onSubmit={handleSubmit}
               onVisualize={handleToggleVisualize}
               isVisualizeActive={generateUI}
-              selectedQuestion={selectedNode?.text ?? null}
-              requiresSelection={activeTreeNodes.length > 0}
-              hasMessages={(activeSession?.messages.length ?? 0) > 0}
+              selectedQuestion={
+                isInitPhase ? null : (selectedNode?.text ?? null)
+              }
+              requiresSelection={
+                !isInitPhase && !freeInputMode && activeTreeNodes.length > 0
+              }
+              hasMessages={
+                !isInitPhase && (activeSession?.messages.length ?? 0) > 0
+              }
+              isInitPhase={isInitPhase}
+              freeInputMode={freeInputMode}
+              onCancelFreeInput={() => setFreeInputMode(false)}
             />
           </div>
         ) : (

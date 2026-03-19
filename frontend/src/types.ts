@@ -18,6 +18,7 @@ export interface ChatSession {
   lastMessage: string;
   timestamp: string;
   messages: ChatMessage[];
+  phase: "init" | "teaching";
 }
 
 export interface TreeNode {

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SendIcon, SparklesIcon } from "lucide-react";
 
 interface Props {
@@ -9,6 +9,9 @@ interface Props {
   selectedQuestion?: string | null; // 会話ツリーで選択中の質問
   requiresSelection?: boolean; // 選択必須モード（会話ツリー表示中）
   hasMessages?: boolean; // メッセージがあるか（ビジュアライズボタン表示用）
+  isInitPhase?: boolean; // 初期化フェーズ中か
+  freeInputMode?: boolean; // 自由入力モード
+  onCancelFreeInput?: () => void;
 }
 
 export function PromptInput({
@@ -19,11 +22,23 @@ export function PromptInput({
   selectedQuestion,
   requiresSelection,
   hasMessages,
+  isInitPhase,
+  freeInputMode,
+  onCancelFreeInput,
 }: Props) {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isDisabled = isStreaming || (requiresSelection && !selectedQuestion);
+
+  // AIの応答完了時にテキストエリアにフォーカス
+  const wasStreaming = useRef(false);
+  useEffect(() => {
+    if (wasStreaming.current && !isStreaming) {
+      textareaRef.current?.focus();
+    }
+    wasStreaming.current = isStreaming;
+  }, [isStreaming]);
 
   const handleSubmit = () => {
     if (!input.trim() || isDisabled) return;
@@ -49,17 +64,31 @@ export function PromptInput({
 
   const canSubmit = Boolean(input.trim()) && !isDisabled;
 
-  const placeholder =
-    requiresSelection && !selectedQuestion
-      ? "会話ツリーのノードを選択してください"
-      : selectedQuestion
-        ? `「${selectedQuestion}」に回答する`
-        : "学びたいテーマを入力... (Enterで送信、Shift+Enterで改行)";
+  const placeholder = isInitPhase
+    ? "学びたいテーマを入力... (Enterで送信、Shift+Enterで改行)"
+    : freeInputMode
+      ? "自分の質問を入力... (Enterで送信)"
+      : requiresSelection && !selectedQuestion
+        ? "会話ツリーのノードを選択してください"
+        : selectedQuestion
+          ? `「${selectedQuestion}」に回答する`
+          : "学びたいテーマを入力... (Enterで送信、Shift+Enterで改行)";
 
   return (
     <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-4">
       <div className="max-w-3xl mx-auto">
-        {selectedQuestion && (
+        {freeInputMode && (
+          <div className="mb-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700 flex items-center justify-between">
+            <span>自分の質問を入力中</span>
+            <button
+              onClick={onCancelFreeInput}
+              className="text-green-500 hover:text-green-700 ml-2"
+            >
+              キャンセル
+            </button>
+          </div>
+        )}
+        {selectedQuestion && !freeInputMode && (
           <div className="mb-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 truncate">
             回答中: {selectedQuestion}
           </div>
@@ -80,7 +109,7 @@ export function PromptInput({
             className="flex-1 bg-transparent resize-none outline-none text-sm text-gray-800 placeholder-gray-400 max-h-[200px] leading-relaxed disabled:cursor-not-allowed"
             style={{ height: "24px" }}
           />
-          {hasMessages && (
+          {hasMessages && !isInitPhase && (
             <button
               onClick={onVisualize}
               disabled={isDisabled}

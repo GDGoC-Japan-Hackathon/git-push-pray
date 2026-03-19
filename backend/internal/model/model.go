@@ -26,6 +26,8 @@ type ChatResponse struct {
 	AnswerSummary  string         `json:"answer_summary"`
 	Questions      []QuestionNode `json:"questions"`
 	Artifact       *Artifact      `json:"artifact,omitempty"`
+	Phase          string         `json:"phase"`
+	Title          string         `json:"title,omitempty"`
 }
 
 type HistoryMessage struct {
@@ -36,6 +38,7 @@ type HistoryMessage struct {
 
 type HistoryResponse struct {
 	Messages []HistoryMessage `json:"messages"`
+	Phase    string           `json:"phase"`
 }
 
 type SessionMeta struct {
@@ -43,6 +46,7 @@ type SessionMeta struct {
 	Title          string `json:"title"`
 	LastMessage    string `json:"last_message"`
 	UpdatedAt      string `json:"updated_at"`
+	Phase          string `json:"phase"`
 }
 
 type SessionsResponse struct {

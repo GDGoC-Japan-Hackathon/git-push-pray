@@ -8,7 +8,7 @@ import (
 )
 
 func CreateConversation(userID uuid.UUID, title string) (*model.Conversation, error) {
-	conv := model.Conversation{UserID: userID, Title: title}
+	conv := model.Conversation{UserID: userID, Title: title, Phase: "init"}
 	if err := DB.Create(&conv).Error; err != nil {
 		return nil, err
 	}
@@ -25,6 +25,14 @@ func GetConversationByIDAndUserID(id, userID uuid.UUID) (*model.Conversation, er
 
 func TouchConversation(id uuid.UUID) error {
 	return DB.Model(&model.Conversation{}).Where("id = ?", id).Update("updated_at", time.Now()).Error
+}
+
+func UpdateConversationPhaseAndTitle(id uuid.UUID, phase, title string) error {
+	return DB.Model(&model.Conversation{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"phase":      phase,
+		"title":      title,
+		"updated_at": time.Now(),
+	}).Error
 }
 
 func ListConversationsByUserID(userID uuid.UUID) ([]model.Conversation, error) {
