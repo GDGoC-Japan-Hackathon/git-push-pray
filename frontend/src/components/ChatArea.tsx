@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { SparklesIcon } from 'lucide-react'
 import type { ChatSession, TreeNode } from '../types'
 import { SUGGESTIONS } from '../constants'
 import { Message } from './Message'
@@ -11,9 +12,10 @@ interface Props {
   onSuggestionClick?: (text: string) => void
   latestQuestions?: TreeNode[]
   onQuestionCardSelect?: (id: string) => void
+  onVisualizeClick?: (id: string) => void
 }
 
-export function ChatArea({ session, isStreaming, onSuggestionClick, latestQuestions = [], onQuestionCardSelect }: Props) {
+export function ChatArea({ session, isStreaming, onSuggestionClick, latestQuestions = [], onQuestionCardSelect, onVisualizeClick }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -40,14 +42,28 @@ export function ChatArea({ session, isStreaming, onSuggestionClick, latestQuesti
             <p className="text-xs text-gray-400 font-medium">次の質問を選択してください</p>
             <div className="flex flex-wrap gap-2">
               {latestQuestions.map(q => (
-                <button
-                  key={q.id}
-                  onClick={() => onQuestionCardSelect?.(q.id)}
-                  className="flex-1 min-w-[140px] max-w-xs text-left px-4 py-3 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 text-sm text-gray-800 leading-snug transition-all shadow-sm hover:shadow-md"
-                >
-                  <span className="text-xs font-semibold text-blue-500 block mb-0.5">Q</span>
-                  {q.text}
-                </button>
+                q.type === 'visualize' ? (
+                  <button
+                    key={q.id}
+                    onClick={() => onVisualizeClick?.(q.id)}
+                    className="flex-1 min-w-[140px] max-w-xs text-left px-4 py-3 rounded-xl border-2 border-purple-200 bg-purple-50 hover:bg-purple-100 hover:border-purple-400 text-sm text-gray-800 leading-snug transition-all shadow-sm hover:shadow-md"
+                  >
+                    <span className="text-xs font-semibold text-purple-500 flex items-center gap-1 mb-0.5">
+                      <SparklesIcon size={12} />
+                      ビジュアライズ
+                    </span>
+                    {q.text}
+                  </button>
+                ) : (
+                  <button
+                    key={q.id}
+                    onClick={() => onQuestionCardSelect?.(q.id)}
+                    className="flex-1 min-w-[140px] max-w-xs text-left px-4 py-3 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 text-sm text-gray-800 leading-snug transition-all shadow-sm hover:shadow-md"
+                  >
+                    <span className="text-xs font-semibold text-blue-500 block mb-0.5">Q</span>
+                    {q.text}
+                  </button>
+                )
               ))}
             </div>
           </div>

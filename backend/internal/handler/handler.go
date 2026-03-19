@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -60,19 +61,36 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("user=%s firebase_uid=%s conversation=%s message_len=%d parent_node=%s", user.ID.String(), user.FirebaseUID, req.ConversationID, len(req.Message), req.ParentNodeID)
 
-	resp, err := h.svc.Chat(r.Context(), user, req.ConversationID, req.Message, req.ParentNodeID, req.AnsweringQuestion)
+	eventCh, err := h.svc.ChatStream(r.Context(), user, req.ConversationID, req.Message, req.ParentNodeID, req.AnsweringQuestion, req.GenerateUI)
 	if err != nil {
 		if err.Error() == "this node has already been answered" {
 			http.Error(w, err.Error(), http.StatusConflict)
 			return
 		}
-		log.Printf("Gemini error: %v", err)
+		log.Printf("ChatStream setup error: %v", err)
 		http.Error(w, "Failed to generate response", http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	// SSEヘッダー設定
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming not supported", http.StatusInternalServerError)
+		return
+	}
+
+	eventCount := 0
+	for event := range eventCh {
+		eventCount++
+		fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event.Type, event.Data)
+		flusher.Flush()
+	}
+	log.Printf("SSE stream completed: %d events sent", eventCount)
 }
 
 func (h *Handler) ConversationTree(w http.ResponseWriter, r *http.Request) {

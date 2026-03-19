@@ -1,7 +1,15 @@
+export interface Artifact {
+  title: string
+  code: string
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  artifact?: Artifact
+  isStreaming?: boolean       // ストリーミング中
+  streamingCode?: string     // 生成中のartifactコード
 }
 
 export interface ChatSession {
@@ -17,4 +25,5 @@ export interface TreeNode {
   parentId: string // '' = ルート
   text: string
   answer: string   // '' = 未回答
+  type: 'question' | 'visualize'
 }

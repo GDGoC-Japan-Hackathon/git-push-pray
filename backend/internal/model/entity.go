@@ -28,6 +28,8 @@ type Message struct {
 	ConversationID uuid.UUID `gorm:"type:uuid;index;not null" json:"conversation_id"`
 	Role           string    `gorm:"size:50;not null" json:"role"`
 	Content        string    `gorm:"type:text;not null" json:"content"`
+	ArtifactTitle  string    `gorm:"type:text" json:"artifact_title"`
+	ArtifactCode   string    `gorm:"type:text" json:"artifact_code"`
 	TokenCount     int       `gorm:"default:0" json:"token_count"`
 	CreatedAt      time.Time `json:"created_at"`
 }
@@ -38,6 +40,7 @@ type ConversationTreeNode struct {
 	MessageID       int64      `gorm:"index;not null" json:"message_id"` // このノードを生成したメッセージのID
 	ParentNodeID    *uuid.UUID `gorm:"type:uuid;index" json:"parent_node_id"`
 	Text            string     `gorm:"type:text;not null" json:"text"`   // 質問内容、またはルートの場合はテーマ内容
+	NodeType        string     `gorm:"size:20;default:'question'" json:"node_type"` // "question" or "visualize"
 	Answer          string     `gorm:"type:text" json:"answer"`          // このノード（質問）に対する回答要約
 	AnswerMessageID *int64     `gorm:"index" json:"answer_message_id"`   // 回答が抽出されたユーザーメッセージのID
 	CreatedAt       time.Time  `json:"created_at"`
