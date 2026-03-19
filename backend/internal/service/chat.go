@@ -267,7 +267,7 @@ func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conver
 		var accumulated strings.Builder
 		chunkCount := 0
 
-		for resp, err := range svc.client.Models.GenerateContentStream(ctx, "gemini-3-flash-preview", contents, config) {
+		for resp, err := range svc.client.Models.GenerateContentStream(ctx, "gemini-2.5-flash", contents, config) {
 			if err != nil {
 				log.Printf("Stream error: %v", err)
 				errJSON, _ := json.Marshal(map[string]string{"error": err.Error()})
