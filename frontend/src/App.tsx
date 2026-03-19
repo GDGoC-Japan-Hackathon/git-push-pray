@@ -84,7 +84,7 @@ export default function App() {
             const histData = await histResp.json()
             setSessions(prev => prev.map(s =>
               s.id === firstId
-                ? { ...s, messages: histData.messages.map((m: { role: string; content: string }) => ({ id: nanoid(), role: m.role as 'user' | 'assistant', content: m.content })) }
+                ? { ...s, messages: histData.messages.map((m: { role: string; content: string; artifact?: { title: string; code: string } }) => ({ id: nanoid(), role: m.role as 'user' | 'assistant', content: m.content, artifact: m.artifact })) }
                 : s,
             ))
           }
@@ -124,7 +124,7 @@ export default function App() {
       const data = await resp.json()
       setSessions(prev => prev.map(s =>
         s.id === sessionId
-          ? { ...s, messages: data.messages.map((m: { role: string; content: string }) => ({ id: nanoid(), role: m.role as 'user' | 'assistant', content: m.content })) }
+          ? { ...s, messages: data.messages.map((m: { role: string; content: string; artifact?: { title: string; code: string } }) => ({ id: nanoid(), role: m.role as 'user' | 'assistant', content: m.content, artifact: m.artifact })) }
           : s,
       ))
     } catch (err) {

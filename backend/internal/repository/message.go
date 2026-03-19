@@ -5,11 +5,13 @@ import (
 	"github.com/google/uuid"
 )
 
-func CreateMessage(conversationID uuid.UUID, role, content string, tokenCount int) (*model.Message, error) {
+func CreateMessage(conversationID uuid.UUID, role, content string, tokenCount int, artifactTitle, artifactCode string) (*model.Message, error) {
 	msg := model.Message{
 		ConversationID: conversationID,
 		Role:           role,
 		Content:        content,
+		ArtifactTitle:  artifactTitle,
+		ArtifactCode:   artifactCode,
 		TokenCount:     tokenCount,
 	}
 	if err := DB.Create(&msg).Error; err != nil {

@@ -28,6 +28,8 @@ type Message struct {
 	ConversationID uuid.UUID `gorm:"type:uuid;index;not null" json:"conversation_id"`
 	Role           string    `gorm:"size:50;not null" json:"role"`
 	Content        string    `gorm:"type:text;not null" json:"content"`
+	ArtifactTitle  string    `gorm:"type:text" json:"artifact_title"`
+	ArtifactCode   string    `gorm:"type:text" json:"artifact_code"`
 	TokenCount     int       `gorm:"default:0" json:"token_count"`
 	CreatedAt      time.Time `json:"created_at"`
 }

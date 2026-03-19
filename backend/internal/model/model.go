@@ -27,8 +27,9 @@ type ChatResponse struct {
 }
 
 type HistoryMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role     string    `json:"role"`
+	Content  string    `json:"content"`
+	Artifact *Artifact `json:"artifact,omitempty"`
 }
 
 type HistoryResponse struct {
