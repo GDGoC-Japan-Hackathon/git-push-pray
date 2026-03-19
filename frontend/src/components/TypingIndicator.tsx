@@ -1,4 +1,4 @@
-import { BotAvatar } from './BotAvatar'
+import { BotAvatar } from "./BotAvatar";
 
 export function TypingIndicator() {
   return (
@@ -12,5 +12,5 @@ export function TypingIndicator() {
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -51,7 +51,9 @@ export function Message({ message }: Props) {
           <div className="mt-3 rounded-xl border border-purple-200 overflow-hidden bg-white shadow-sm">
             <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 border-b border-purple-200">
               <Code size={14} className="text-purple-500" />
-              <span className="text-xs font-medium text-purple-600">コード生成中...</span>
+              <span className="text-xs font-medium text-purple-600">
+                コード生成中...
+              </span>
               <span className="ml-auto inline-block w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
             </div>
             <pre

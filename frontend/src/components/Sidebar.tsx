@@ -1,25 +1,29 @@
-import { XIcon, PlusIcon, MessageSquareIcon } from 'lucide-react'
-import type { ChatSession } from '../types'
-import { formatTimestamp } from '../utils/format'
+import { XIcon, PlusIcon, MessageSquareIcon } from "lucide-react";
+import type { ChatSession } from "../types";
+import { formatTimestamp } from "../utils/format";
 
 interface Props {
-  open: boolean
-  sessions: ChatSession[]
-  activeSessionId: string | null
-  onClose: () => void
-  onNewChat: () => void
-  onSelectSession: (id: string) => void
+  open: boolean;
+  sessions: ChatSession[];
+  activeSessionId: string | null;
+  onClose: () => void;
+  onNewChat: () => void;
+  onSelectSession: (id: string) => void;
 }
 
-export function Sidebar({ open, sessions, activeSessionId, onClose, onNewChat, onSelectSession }: Props) {
+export function Sidebar({
+  open,
+  sessions,
+  activeSessionId,
+  onClose,
+  onNewChat,
+  onSelectSession,
+}: Props) {
   return (
     <>
       {/* Overlay */}
       {open && (
-        <div
-          className="fixed inset-0 bg-black/20 z-20"
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 bg-black/20 z-20" onClick={onClose} />
       )}
 
       {/* Panel */}
@@ -27,7 +31,7 @@ export function Sidebar({ open, sessions, activeSessionId, onClose, onNewChat, o
         className={`
           fixed top-0 left-0 h-full w-72 bg-gray-50 border-r border-gray-200 z-30
           flex flex-col transition-transform duration-300 ease-in-out
-          ${open ? 'translate-x-0' : '-translate-x-full'}
+          ${open ? "translate-x-0" : "-translate-x-full"}
         `}
       >
         <SidebarHeader onClose={onClose} />
@@ -43,7 +47,7 @@ export function Sidebar({ open, sessions, activeSessionId, onClose, onNewChat, o
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1">
-          {sessions.map(session => (
+          {sessions.map((session) => (
             <SessionItem
               key={session.id}
               session={session}
@@ -54,7 +58,7 @@ export function Sidebar({ open, sessions, activeSessionId, onClose, onNewChat, o
         </div>
       </aside>
     </>
-  )
+  );
 }
 
 function SidebarHeader({ onClose }: { onClose: () => void }) {
@@ -68,13 +72,13 @@ function SidebarHeader({ onClose }: { onClose: () => void }) {
         <XIcon size={18} />
       </button>
     </div>
-  )
+  );
 }
 
 interface SessionItemProps {
-  session: ChatSession
-  isActive: boolean
-  onSelect: (id: string) => void
+  session: ChatSession;
+  isActive: boolean;
+  onSelect: (id: string) => void;
 }
 
 function SessionItem({ session, isActive, onSelect }: SessionItemProps) {
@@ -83,9 +87,10 @@ function SessionItem({ session, isActive, onSelect }: SessionItemProps) {
       onClick={() => onSelect(session.id)}
       className={`
         w-full text-left px-3 py-2.5 rounded-lg transition-colors
-        ${isActive
-          ? 'bg-blue-50 border border-blue-200 text-blue-900'
-          : 'hover:bg-gray-100 text-gray-700'
+        ${
+          isActive
+            ? "bg-blue-50 border border-blue-200 text-blue-900"
+            : "hover:bg-gray-100 text-gray-700"
         }
       `}
     >
@@ -94,11 +99,13 @@ function SessionItem({ session, isActive, onSelect }: SessionItemProps) {
         <div className="min-w-0">
           <div className="text-sm font-medium truncate">{session.title}</div>
           <div className="text-xs text-gray-400 mt-0.5 truncate">
-            {session.lastMessage || '（メッセージなし）'}
+            {session.lastMessage || "（メッセージなし）"}
           </div>
         </div>
       </div>
-      <div className="text-xs text-gray-400 mt-1 pl-5">{formatTimestamp(session.timestamp)}</div>
+      <div className="text-xs text-gray-400 mt-1 pl-5">
+        {formatTimestamp(session.timestamp)}
+      </div>
     </button>
-  )
+  );
 }

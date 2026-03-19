@@ -11,11 +11,13 @@ const firebaseConfig = {
 };
 
 // Validate config
-const requiredKeys = ['apiKey', 'authDomain', 'projectId', 'appId'] as const;
-const missingKeys = requiredKeys.filter(key => !firebaseConfig[key]);
+const requiredKeys = ["apiKey", "authDomain", "projectId", "appId"] as const;
+const missingKeys = requiredKeys.filter((key) => !firebaseConfig[key]);
 
 if (missingKeys.length > 0) {
-  throw new Error(`Firebase configuration is missing: ${missingKeys.join(', ')}. Check your .env file.`);
+  throw new Error(
+    `Firebase configuration is missing: ${missingKeys.join(", ")}. Check your .env file.`
+  );
 }
 
 // Initialize Firebase
@@ -27,7 +29,7 @@ export const googleProvider = new GoogleAuthProvider();
 
 // Configure Google Provider
 googleProvider.setCustomParameters({
-  prompt: 'select_account'
+  prompt: "select_account",
 });
 
 export default app;

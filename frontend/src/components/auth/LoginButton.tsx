@@ -1,13 +1,16 @@
-import React from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, User } from 'lucide-react';
+import React from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import { LogOut, User } from "lucide-react";
 
 export const LoginButton: React.FC = () => {
   const { user, login, logout, loading } = useAuth();
 
   if (loading) {
     return (
-      <button disabled className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-400 rounded-md cursor-not-allowed">
+      <button
+        disabled
+        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-400 rounded-md cursor-not-allowed"
+      >
         <span className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></span>
         Loading...
       </button>
@@ -19,7 +22,11 @@ export const LoginButton: React.FC = () => {
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           {user.photoURL ? (
-            <img src={user.photoURL} alt={user.displayName || ''} className="w-8 h-8 rounded-full border border-gray-200" />
+            <img
+              src={user.photoURL}
+              alt={user.displayName || ""}
+              className="w-8 h-8 rounded-full border border-gray-200"
+            />
           ) : (
             <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
               <User size={16} className="text-gray-500" />
@@ -45,7 +52,11 @@ export const LoginButton: React.FC = () => {
       onClick={login}
       className="flex items-center gap-2 px-6 py-2 bg-white text-gray-800 font-semibold border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-all duration-200"
     >
-      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google Logo" className="w-5 h-5" />
+      <img
+        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+        alt="Google Logo"
+        className="w-5 h-5"
+      />
       <span>Sign in with Google</span>
     </button>
   );
