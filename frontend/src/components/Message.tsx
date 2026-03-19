@@ -5,6 +5,7 @@ import { renderMarkdown } from "../utils/markdown";
 import { ArtifactRenderer } from "./ArtifactRenderer";
 import { BotAvatar } from "./BotAvatar";
 import { UserAvatar } from "./UserAvatar";
+import "@/components/shadcn-space/animated-text/animated-text-01.css";
 
 interface Props {
   message: ChatMessage;
@@ -37,6 +38,10 @@ export function Message({ message }: Props) {
         >
           {isUser ? (
             <span className="whitespace-pre-wrap">{message.content}</span>
+          ) : !message.content && message.isStreaming ? (
+            <p className="shiny inline-block bg-[linear-gradient(120deg,#9ca3af_40%,#111827_50%,#9ca3af_60%)] bg-[length:200%_100%] bg-clip-text text-transparent text-sm font-medium">
+              Thinking...
+            </p>
           ) : (
             <div className="space-y-1">{renderMarkdown(message.content)}</div>
           )}
