@@ -82,6 +82,9 @@ export async function readSSEStream(
     reader.releaseLock()
   }
 
+  // デコーダに残っているマルチバイト文字をフラッシュ
+  buffer += decoder.decode()
+
   // 残りのバッファを処理
   if (buffer.trim()) {
     await processSSEBlock(buffer, onEvent)

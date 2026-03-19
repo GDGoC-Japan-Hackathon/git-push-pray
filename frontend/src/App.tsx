@@ -266,12 +266,38 @@ export default function App() {
           setLatestQuestions(newQuestions)
         } else if (event === 'error') {
           console.error('Stream error:', data)
+          doneProcessed = true
+          setSessions(prev => prev.map(s =>
+            s.id === sessionId
+              ? {
+                  ...s,
+                  messages: s.messages.map(m =>
+                    m.id === msgId
+                      ? { ...m, content: 'ストリーミング中にエラーが発生しました。', isStreaming: false }
+                      : m
+                  ),
+                }
+              : s,
+          ))
+          setIsStreaming(false)
         }
       })
 
       // doneイベントが来なかった場合のフォールバック
       if (!doneProcessed) {
         console.warn('SSE stream ended without done event')
+        setSessions(prev => prev.map(s =>
+          s.id === sessionId
+            ? {
+                ...s,
+                messages: s.messages.map(m =>
+                  m.id === msgId && m.isStreaming
+                    ? { ...m, content: m.content || '予期しないエラーにより応答が中断されました。', isStreaming: false }
+                    : m
+                ),
+              }
+            : s,
+        ))
       }
 
       setSelectedNodeId(null)
