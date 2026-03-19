@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { nanoid } from "nanoid";
 import type { ChatSession, TreeNode } from "./types";
 
@@ -11,9 +12,14 @@ import { useAuth } from "./contexts/AuthContext";
 import { readSSEStream, extractJSONStringField } from "./utils/streamParser";
 
 export default function App() {
+  const { chatId } = useParams<{ chatId?: string }>();
+  const navigate = useNavigate();
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(
+    chatId ?? null
+  );
   const [isStreaming, setIsStreaming] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("chat");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -28,6 +34,25 @@ export default function App() {
     : [];
   const selectedNode =
     activeTreeNodes.find((n) => n.id === selectedNodeId) ?? null;
+
+  // URLパラメータとactiveSessionIdを同期
+  useEffect(() => {
+    if (chatId && chatId !== activeSessionId) {
+      setActiveSessionId(chatId);
+      setSelectedNodeId(null);
+      setLatestQuestions([]);
+      // セッション一覧にあれば履歴を読み込む
+      if (sessions.some((s) => s.id === chatId)) {
+        fetchHistory(chatId);
+        fetchConversationTree(chatId);
+      }
+    } else if (!chatId && activeSessionId) {
+      setActiveSessionId(null);
+      setSelectedNodeId(null);
+      setLatestQuestions([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId]);
 
   const apiBase = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
 
@@ -67,6 +92,7 @@ export default function App() {
     [user, apiBase]
   );
 
+  // セッション一覧の初回取得（userログイン時のみ）
   useEffect(() => {
     if (!user) {
       setSessions([]);
@@ -97,18 +123,25 @@ export default function App() {
           })
         );
         setSessions(fetched);
-        if (fetched.length > 0) {
-          const firstId = fetched[0].id;
-          setActiveSessionId(firstId);
+
+        // 初回ロード時: URLにchatIdがあればそのセッションの履歴を読み込む
+        const initialChatId = chatId;
+        const targetId =
+          initialChatId && fetched.some((s) => s.id === initialChatId)
+            ? initialChatId
+            : null;
+
+        if (targetId) {
+          setActiveSessionId(targetId);
           const histResp = await fetch(
-            `${apiBase}/api/history?user_id=${encodeURIComponent(user.uid)}&conversation_id=${encodeURIComponent(firstId)}`,
+            `${apiBase}/api/history?user_id=${encodeURIComponent(user.uid)}&conversation_id=${encodeURIComponent(targetId)}`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           if (histResp.ok) {
             const histData = await histResp.json();
             setSessions((prev) =>
               prev.map((s) =>
-                s.id === firstId
+                s.id === targetId
                   ? {
                       ...s,
                       messages: histData.messages.map(
@@ -128,29 +161,23 @@ export default function App() {
               )
             );
           }
-          await fetchConversationTree(firstId);
+          await fetchConversationTree(targetId);
         }
       } catch (err) {
         console.error("Failed to fetch sessions:", err);
       }
     };
     fetchSessions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, apiBase]);
 
   const handleNewChat = useCallback(() => {
-    const session: ChatSession = {
-      id: `chat-${nanoid()}`,
-      title: "新しいチャット",
-      lastMessage: "",
-      timestamp: new Date().toISOString(),
-      messages: [],
-    };
-    setSessions((prev) => [session, ...prev]);
-    setActiveSessionId(session.id);
+    setActiveSessionId(null);
     setSelectedNodeId(null);
     setLatestQuestions([]);
     setSidebarOpen(false);
-  }, []);
+    navigate("/");
+  }, [navigate]);
 
   const fetchHistory = useCallback(
     async (sessionId: string) => {
@@ -197,9 +224,10 @@ export default function App() {
       setSelectedNodeId(null);
       setLatestQuestions([]);
       setSidebarOpen(false);
+      navigate(`/${id}`);
       await Promise.all([fetchHistory(id), fetchConversationTree(id)]);
     },
-    [fetchHistory, fetchConversationTree]
+    [fetchHistory, fetchConversationTree, navigate]
   );
 
   const handleViewModeChange = useCallback(
@@ -229,6 +257,7 @@ export default function App() {
         setSessions((prev) => [session, ...prev]);
         setActiveSessionId(session.id);
         sessionId = session.id;
+        navigate(`/${session.id}`, { replace: true });
       }
 
       const msgId = nanoid();
@@ -320,6 +349,7 @@ export default function App() {
                 )
               );
               setActiveSessionId(actualId);
+              navigate(`/${actualId}`, { replace: true });
             }
 
             // 最終データでメッセージを確定（streaming解除 + artifact付与）
@@ -441,6 +471,7 @@ export default function App() {
       user,
       apiBase,
       fetchConversationTree,
+      navigate,
     ]
   );
 
