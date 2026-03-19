@@ -52,6 +52,7 @@ func main() {
 	mux.Handle("/api/history", middleware.CORS(auth(http.HandlerFunc(h.History))))
 	mux.Handle("/api/sessions", middleware.CORS(auth(http.HandlerFunc(h.Sessions))))
 	mux.Handle("/api/conversation-tree", middleware.CORS(auth(http.HandlerFunc(h.ConversationTree))))
+	mux.Handle("/api/conversation", middleware.CORS(auth(http.HandlerFunc(h.DeleteConversation))))
 
 	port := os.Getenv("PORT")
 	if port == "" {

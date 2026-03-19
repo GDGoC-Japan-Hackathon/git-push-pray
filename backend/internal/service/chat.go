@@ -401,6 +401,13 @@ func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conver
 	return ch, nil
 }
 
+func (svc *ChatService) DeleteConversation(userID, conversationID uuid.UUID) error {
+	if _, err := repository.GetConversationByIDAndUserID(conversationID, userID); err != nil {
+		return fmt.Errorf("conversation not found")
+	}
+	return repository.DeleteConversation(conversationID)
+}
+
 func (svc *ChatService) GetConversationTree(conversationIDStr string, userID uuid.UUID) (*model.ConversationTreeResponse, error) {
 	convID, err := uuid.Parse(conversationIDStr)
 	if err != nil {
