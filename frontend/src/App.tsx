@@ -18,6 +18,7 @@ export default function App() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [treeNodes, setTreeNodes] = useState<Record<string, TreeNode[]>>({})
   const [latestQuestions, setLatestQuestions] = useState<TreeNode[]>([])
+  const [generateUI, setGenerateUI] = useState(false)
   const { user, loading } = useAuth()
 
   const activeSession = sessions.find(s => s.id === activeSessionId) ?? null
@@ -36,11 +37,12 @@ export default function App() {
       )
       if (!resp.ok) return []
       const data = await resp.json()
-      const nodes: TreeNode[] = (data.nodes ?? []).map((n: { id: string; parent_id: string; text: string; answer: string }) => ({
+      const nodes: TreeNode[] = (data.nodes ?? []).map((n: { id: string; parent_id: string; text: string; answer: string; type?: string }) => ({
         id: n.id,
         parentId: n.parent_id,
         text: n.text,
         answer: n.answer,
+        type: (n.type || 'question') as 'question' | 'visualize',
       }))
       setTreeNodes(prev => ({ ...prev, [sessionId]: nodes }))
       return nodes
@@ -219,13 +221,14 @@ export default function App() {
         return
       }
 
-      const body: Record<string, string> = {
+      const body: Record<string, string | boolean> = {
         user_id: user.uid,
         conversation_id: sessionId,
         message: text,
       }
       if (selectedNodeId) body.parent_node_id = selectedNodeId
       if (selectedNode) body.answering_question = selectedNode.text
+      if (generateUI) body.generate_ui = true
 
       const resp = await fetch(`${apiBase}/api/chat`, {
         method: 'POST',
@@ -247,16 +250,18 @@ export default function App() {
       const newQuestions = updatedNodes.filter(n => questionIds.has(n.id))
       setLatestQuestions(newQuestions)
 
-      // 選択状態をリセット
+      // 選択状態・ビジュアライズモードをリセット
       setSelectedNodeId(null)
+      setGenerateUI(false)
 
       streamResponse(actualId, data.reply, data.artifact ?? undefined)
     } catch (err) {
       console.error('Failed to fetch from backend:', err)
       const fallbackResponse = '申し訳ありません。バックエンドへの接続に失敗しました。ローカルでGoサーバーが起動しているか確認してください。'
+      setGenerateUI(false)
       streamResponse(sessionId, fallbackResponse)
     }
-  }, [isStreaming, activeSessionId, selectedNodeId, selectedNode, streamResponse, user, apiBase, fetchConversationTree])
+  }, [isStreaming, activeSessionId, selectedNodeId, selectedNode, generateUI, streamResponse, user, apiBase, fetchConversationTree])
 
   const handleNodeSelect = useCallback((id: string) => {
     setSelectedNodeId(prev => prev === id ? null : id) // 再クリックで選択解除
@@ -266,6 +271,18 @@ export default function App() {
   const handleQuestionCardSelect = useCallback((id: string) => {
     setSelectedNodeId(id)
     setLatestQuestions([])
+  }, [])
+
+  // 質問カードのvisualizeクリック → ノード選択 + ビジュアライズモードON
+  const handleVisualizeClick = useCallback((nodeId: string) => {
+    setSelectedNodeId(nodeId)
+    setLatestQuestions([])
+    setGenerateUI(true)
+  }, [])
+
+  // 入力欄のビジュアライズボタン → トグル
+  const handleToggleVisualize = useCallback(() => {
+    setGenerateUI(prev => !prev)
   }, [])
 
   return (
@@ -296,6 +313,7 @@ export default function App() {
               onSuggestionClick={user ? handleSubmit : undefined}
               latestQuestions={latestQuestions}
               onQuestionCardSelect={handleQuestionCardSelect}
+              onVisualizeClick={handleVisualizeClick}
             />
           </div>
           <div className={`flex flex-col flex-1 min-h-0 border-l border-gray-200 ${viewMode === 'chat' ? 'hidden' : 'flex'}`}>
@@ -317,8 +335,11 @@ export default function App() {
             <PromptInput
               isStreaming={isStreaming}
               onSubmit={handleSubmit}
+              onVisualize={handleToggleVisualize}
+              isVisualizeActive={generateUI}
               selectedQuestion={selectedNode?.text ?? null}
               requiresSelection={activeTreeNodes.length > 0}
+              hasMessages={(activeSession?.messages.length ?? 0) > 0}
             />
           </div>
         ) : (

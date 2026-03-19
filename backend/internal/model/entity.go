@@ -40,6 +40,7 @@ type ConversationTreeNode struct {
 	MessageID       int64      `gorm:"index;not null" json:"message_id"` // このノードを生成したメッセージのID
 	ParentNodeID    *uuid.UUID `gorm:"type:uuid;index" json:"parent_node_id"`
 	Text            string     `gorm:"type:text;not null" json:"text"`   // 質問内容、またはルートの場合はテーマ内容
+	NodeType        string     `gorm:"size:20;default:'question'" json:"node_type"` // "question" or "visualize"
 	Answer          string     `gorm:"type:text" json:"answer"`          // このノード（質問）に対する回答要約
 	AnswerMessageID *int64     `gorm:"index" json:"answer_message_id"`   // 回答が抽出されたユーザーメッセージのID
 	CreatedAt       time.Time  `json:"created_at"`

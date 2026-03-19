@@ -23,4 +23,5 @@ export interface TreeNode {
   parentId: string // '' = ルート
   text: string
   answer: string   // '' = 未回答
+  type: 'question' | 'visualize'
 }

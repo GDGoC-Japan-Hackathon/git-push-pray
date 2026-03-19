@@ -1,14 +1,17 @@
 import { useRef, useState } from 'react'
-import { SendIcon } from 'lucide-react'
+import { SendIcon, SparklesIcon } from 'lucide-react'
 
 interface Props {
   isStreaming: boolean
   onSubmit: (text: string) => void
+  onVisualize?: () => void
+  isVisualizeActive?: boolean
   selectedQuestion?: string | null // 会話ツリーで選択中の質問
   requiresSelection?: boolean      // 選択必須モード（会話ツリー表示中）
+  hasMessages?: boolean            // メッセージがあるか（ビジュアライズボタン表示用）
 }
 
-export function PromptInput({ isStreaming, onSubmit, selectedQuestion, requiresSelection }: Props) {
+export function PromptInput({ isStreaming, onSubmit, onVisualize, isVisualizeActive, selectedQuestion, requiresSelection, hasMessages }: Props) {
   const [input, setInput] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -66,6 +69,24 @@ export function PromptInput({ isStreaming, onSubmit, selectedQuestion, requiresS
             className="flex-1 bg-transparent resize-none outline-none text-sm text-gray-800 placeholder-gray-400 max-h-[200px] leading-relaxed disabled:cursor-not-allowed"
             style={{ height: '24px' }}
           />
+          {hasMessages && (
+            <button
+              onClick={onVisualize}
+              disabled={isDisabled}
+              className={`
+                flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all shrink-0
+                ${isDisabled
+                  ? 'text-gray-300 cursor-not-allowed'
+                  : isVisualizeActive
+                    ? 'bg-purple-100 text-purple-700 ring-1 ring-purple-300'
+                    : 'text-purple-500 hover:bg-purple-50 hover:text-purple-600'
+                }
+              `}
+            >
+              <SparklesIcon size={14} />
+              ビジュアライズ
+            </button>
+          )}
           <SubmitButton onClick={handleSubmit} disabled={!canSubmit} />
         </div>
         <p className="text-center text-xs text-gray-300 mt-2">

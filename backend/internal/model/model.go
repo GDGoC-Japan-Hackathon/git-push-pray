@@ -6,11 +6,13 @@ type ChatRequest struct {
 	Message           string `json:"message"`
 	ParentNodeID      string `json:"parent_node_id"`
 	AnsweringQuestion string `json:"answering_question"`
+	GenerateUI        bool   `json:"generate_ui"`
 }
 
 type QuestionNode struct {
 	ID      string `json:"id"`
 	Summary string `json:"summary"`
+	Type    string `json:"type"` // "question" or "visualize"
 }
 
 type Artifact struct {
@@ -52,6 +54,7 @@ type TreeNodeResponse struct {
 	ParentID string `json:"parent_id"`
 	Text     string `json:"text"`
 	Answer   string `json:"answer"`
+	Type     string `json:"type"` // "question" or "visualize"
 }
 
 type ConversationTreeResponse struct {

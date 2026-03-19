@@ -60,7 +60,7 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("user=%s firebase_uid=%s conversation=%s message_len=%d parent_node=%s", user.ID.String(), user.FirebaseUID, req.ConversationID, len(req.Message), req.ParentNodeID)
 
-	resp, err := h.svc.Chat(r.Context(), user, req.ConversationID, req.Message, req.ParentNodeID, req.AnsweringQuestion)
+	resp, err := h.svc.Chat(r.Context(), user, req.ConversationID, req.Message, req.ParentNodeID, req.AnsweringQuestion, req.GenerateUI)
 	if err != nil {
 		if err.Error() == "this node has already been answered" {
 			http.Error(w, err.Error(), http.StatusConflict)
