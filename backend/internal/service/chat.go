@@ -104,12 +104,21 @@ func (svc *ChatService) Chat(ctx context.Context, user *model.User, conversation
 		}
 	}
 
-	// 回答済みチェック
+	// 回答済みチェック（ノードが同じ会話に属するかも検証）
 	if parentNodeID != "" {
 		pID, err := uuid.Parse(parentNodeID)
 		if err == nil {
-			existingNode, _ := repository.GetTreeNodeByID(pID)
-			if existingNode != nil && existingNode.Answer != "" {
+			existingNode, err := repository.GetTreeNodeByID(pID)
+			if err != nil {
+				if err == gorm.ErrRecordNotFound {
+					return nil, fmt.Errorf("invalid parent node")
+				}
+				return nil, err
+			}
+			if existingNode.ConversationID != conv.ID {
+				return nil, fmt.Errorf("invalid parent node")
+			}
+			if existingNode.Answer != "" {
 				return nil, fmt.Errorf("this node has already been answered")
 			}
 		}
@@ -193,8 +202,12 @@ func (svc *ChatService) Chat(ctx context.Context, user *model.User, conversation
 
 	var parsed geminiReply
 	if err := json.Unmarshal([]byte(resp.Text()), &parsed); err != nil {
-		// フォールバック: plain textをreplyとして扱う
-		parsed.Reply = resp.Text()
+		log.Printf("Gemini response parse error: %v, raw: %s", err, resp.Text())
+		return nil, fmt.Errorf("failed to parse gemini response")
+	}
+	if parsed.Reply == "" || len(parsed.Questions) == 0 {
+		log.Printf("Gemini response validation error: reply=%q questions=%d, raw: %s", parsed.Reply, len(parsed.Questions), resp.Text())
+		return nil, fmt.Errorf("invalid gemini response structure")
 	}
 
 	// DBに保存（user message）
@@ -215,14 +228,18 @@ func (svc *ChatService) Chat(ctx context.Context, user *model.User, conversation
 			Text:           message,
 			Answer:         "",
 		}
-		if err := repository.CreateTreeNode(rootNode); err == nil {
+		if err := repository.CreateTreeNode(rootNode); err != nil {
+			log.Printf("failed to create root tree node: %v", err)
+		} else {
 			activeParentNodeID = rootNode.ID.String()
 		}
 	} else if parentNodeID != "" {
 		// 親ノードの answer を更新
 		pID, err := uuid.Parse(parentNodeID)
 		if err == nil {
-			_ = repository.UpdateTreeNodeAnswer(pID, parsed.AnswerSummary, userMsg.ID)
+			if err := repository.UpdateTreeNodeAnswer(pID, conv.ID, parsed.AnswerSummary, userMsg.ID); err != nil {
+				log.Printf("failed to update tree node answer (nodeID=%s): %v", pID, err)
+			}
 		}
 	}
 
@@ -274,15 +291,19 @@ func (svc *ChatService) Chat(ctx context.Context, user *model.User, conversation
 	}, nil
 }
 
-func (svc *ChatService) GetConversationTree(conversationIDStr string) *model.ConversationTreeResponse {
+func (svc *ChatService) GetConversationTree(conversationIDStr string, userID uuid.UUID) (*model.ConversationTreeResponse, error) {
 	convID, err := uuid.Parse(conversationIDStr)
 	if err != nil {
-		return &model.ConversationTreeResponse{Nodes: []model.TreeNodeResponse{}}
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	if _, err := repository.GetConversationByIDAndUserID(convID, userID); err != nil {
+		return nil, err
 	}
 
 	dbNodes, err := repository.GetTreeNodesByConversationID(convID)
 	if err != nil {
-		return &model.ConversationTreeResponse{Nodes: []model.TreeNodeResponse{}}
+		return nil, err
 	}
 
 	result := make([]model.TreeNodeResponse, 0, len(dbNodes))
@@ -298,7 +319,7 @@ func (svc *ChatService) GetConversationTree(conversationIDStr string) *model.Con
 			Answer:   n.Answer,
 		})
 	}
-	return &model.ConversationTreeResponse{Nodes: result}
+	return &model.ConversationTreeResponse{Nodes: result}, nil
 }
 
 func (svc *ChatService) History(userID uuid.UUID, conversationIDStr string) (*model.HistoryResponse, error) {

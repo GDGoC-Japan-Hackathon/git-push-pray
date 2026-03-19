@@ -73,29 +73,12 @@ export default function App() {
           messages: [],
         }))
         setSessions(fetched)
-        if (fetched.length > 0) {
-          const firstId = fetched[0].id
-          setActiveSessionId(firstId)
-          const histResp = await fetch(
-            `${apiBase}/api/history?user_id=${encodeURIComponent(user.uid)}&conversation_id=${encodeURIComponent(firstId)}`,
-            { headers: { Authorization: `Bearer ${token}` } },
-          )
-          if (histResp.ok) {
-            const histData = await histResp.json()
-            setSessions(prev => prev.map(s =>
-              s.id === firstId
-                ? { ...s, messages: histData.messages.map((m: { role: string; content: string }) => ({ id: nanoid(), role: m.role as 'user' | 'assistant', content: m.content })) }
-                : s,
-            ))
-          }
-          await fetchConversationTree(firstId)
-        }
       } catch (err) {
         console.error('Failed to fetch sessions:', err)
       }
     }
     fetchSessions()
-  }, [user, apiBase, fetchConversationTree])
+  }, [user, apiBase])
 
   const handleNewChat = useCallback(() => {
     const session: ChatSession = {

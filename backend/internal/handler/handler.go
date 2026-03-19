@@ -98,7 +98,11 @@ func (h *Handler) ConversationTree(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := h.svc.GetConversationTree(conversationID)
+	resp, err := h.svc.GetConversationTree(conversationID, user.ID)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }

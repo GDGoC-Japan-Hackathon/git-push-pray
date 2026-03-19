@@ -15,8 +15,8 @@ func GetTreeNodesByConversationID(convID uuid.UUID) ([]model.ConversationTreeNod
 	return nodes, err
 }
 
-func UpdateTreeNodeAnswer(nodeID uuid.UUID, answer string, answerMessageID int64) error {
-	return DB.Model(&model.ConversationTreeNode{}).Where("id = ?", nodeID).Updates(map[string]interface{}{
+func UpdateTreeNodeAnswer(nodeID, conversationID uuid.UUID, answer string, answerMessageID int64) error {
+	return DB.Model(&model.ConversationTreeNode{}).Where("id = ? AND conversation_id = ?", nodeID, conversationID).Updates(map[string]interface{}{
 		"answer":            answer,
 		"answer_message_id": answerMessageID,
 	}).Error
