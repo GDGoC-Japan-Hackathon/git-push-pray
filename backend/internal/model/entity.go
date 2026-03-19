@@ -31,3 +31,15 @@ type Message struct {
 	TokenCount     int       `gorm:"default:0" json:"token_count"`
 	CreatedAt      time.Time `json:"created_at"`
 }
+
+type ConversationTreeNode struct {
+	ID              uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	ConversationID  uuid.UUID  `gorm:"type:uuid;index;not null" json:"conversation_id"`
+	MessageID       int64      `gorm:"index;not null" json:"message_id"` // このノードを生成したメッセージのID
+	ParentNodeID    *uuid.UUID `gorm:"type:uuid;index" json:"parent_node_id"`
+	Text            string     `gorm:"type:text;not null" json:"text"`   // 質問内容、またはルートの場合はテーマ内容
+	Answer          string     `gorm:"type:text" json:"answer"`          // このノード（質問）に対する回答要約
+	AnswerMessageID *int64     `gorm:"index" json:"answer_message_id"`   // 回答が抽出されたユーザーメッセージのID
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+}

@@ -11,3 +11,10 @@ export interface ChatSession {
   timestamp: string
   messages: ChatMessage[]
 }
+
+export interface TreeNode {
+  id: string
+  parentId: string // '' = ルート
+  text: string
+  answer: string   // '' = 未回答
+}
