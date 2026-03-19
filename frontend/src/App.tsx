@@ -11,6 +11,13 @@ import { PromptInput } from "./components/PromptInput";
 import { useAuth } from "./contexts/AuthContext";
 import { readSSEStream, extractJSONStringField } from "./utils/streamParser";
 
+function getUnansweredLeaves(nodes: TreeNode[]): TreeNode[] {
+  const parentIds = new Set(nodes.map((n) => n.parentId).filter(Boolean));
+  return nodes.filter(
+    (n) => n.type === "question" && n.parentId !== "" && n.answer === "" && !parentIds.has(n.id)
+  );
+}
+
 export default function App() {
   const { chatId } = useParams<{ chatId?: string }>();
   const navigate = useNavigate();
@@ -161,7 +168,8 @@ export default function App() {
               )
             );
           }
-          await fetchConversationTree(targetId);
+          const nodes = await fetchConversationTree(targetId);
+          setLatestQuestions(getUnansweredLeaves(nodes));
         }
       } catch (err) {
         console.error("Failed to fetch sessions:", err);
@@ -225,7 +233,8 @@ export default function App() {
       setLatestQuestions([]);
       setSidebarOpen(false);
       navigate(`/${id}`);
-      await Promise.all([fetchHistory(id), fetchConversationTree(id)]);
+      const [, nodes] = await Promise.all([fetchHistory(id), fetchConversationTree(id)]);
+      setLatestQuestions(getUnansweredLeaves(nodes));
     },
     [fetchHistory, fetchConversationTree, navigate]
   );
