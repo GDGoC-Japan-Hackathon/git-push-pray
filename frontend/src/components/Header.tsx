@@ -1,8 +1,13 @@
-import { MenuIcon, MessageSquareIcon, NetworkIcon } from "lucide-react";
+import {
+  ColumnsIcon,
+  MenuIcon,
+  MessageSquareIcon,
+  NetworkIcon,
+} from "lucide-react";
 import { BotAvatar } from "./BotAvatar";
 import { LoginButton } from "./auth/LoginButton";
 
-export type ViewMode = "chat" | "tree";
+export type ViewMode = "chat" | "both" | "tree";
 
 interface Props {
   title: string | null;
@@ -46,15 +51,23 @@ export function Header({
               onClick={() => onViewModeChange("chat")}
               className={`p-2 transition-colors ${viewMode === "chat" ? "bg-blue-50 text-blue-600" : "text-gray-500 hover:bg-gray-50"}`}
               aria-label="チャット表示"
-              title="チャット"
+              title="チャットのみ"
             >
               <MessageSquareIcon size={16} />
             </button>
             <button
+              onClick={() => onViewModeChange("both")}
+              className={`p-2 transition-colors ${viewMode === "both" ? "bg-blue-50 text-blue-600" : "text-gray-500 hover:bg-gray-50"}`}
+              aria-label="両方表示"
+              title="チャット＋ツリー"
+            >
+              <ColumnsIcon size={16} />
+            </button>
+            <button
               onClick={() => onViewModeChange("tree")}
               className={`p-2 transition-colors ${viewMode === "tree" ? "bg-blue-50 text-blue-600" : "text-gray-500 hover:bg-gray-50"}`}
-              aria-label="会話ツリー表示"
-              title="会話ツリー"
+              aria-label="ツリー表示"
+              title="ツリーのみ"
             >
               <NetworkIcon size={16} />
             </button>

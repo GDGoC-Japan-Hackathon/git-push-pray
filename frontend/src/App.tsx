@@ -266,7 +266,7 @@ export default function App() {
   const handleViewModeChange = useCallback(
     (mode: ViewMode) => {
       setViewMode(mode);
-      if (mode === "tree" && activeSessionId) {
+      if ((mode === "tree" || mode === "both") && activeSessionId) {
         fetchConversationTree(activeSessionId);
       }
     },
@@ -644,7 +644,7 @@ export default function App() {
         {/* PC: 横並び / モバイル: viewModeで切り替え */}
         <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
           <div
-            className={`flex flex-col flex-1 min-h-0 min-w-0 ${!isInitPhase && viewMode === "tree" ? "hidden md:flex" : "flex"}`}
+            className={`flex flex-col flex-1 min-h-0 min-w-0 ${!isInitPhase && viewMode === "tree" ? "hidden" : "flex"}`}
           >
             <ChatArea
               session={activeSession}
@@ -659,6 +659,7 @@ export default function App() {
           {!isInitPhase && (
             <div
               className={`flex flex-col flex-1 min-h-0 border-l border-gray-200 ${viewMode === "chat" ? "hidden" : "flex"}`}
+              style={viewMode === "both" ? { maxWidth: "50%" } : undefined}
             >
               <ConversationTreeView
                 treeNodes={activeTreeNodes}
