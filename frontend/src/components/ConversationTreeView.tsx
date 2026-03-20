@@ -526,7 +526,7 @@ export function ConversationTreeView({
         edgeTypes={edgeTypes}
         fitView
         fitViewOptions={{ padding: 0.3 }}
-        minZoom={0.3}
+        minZoom={0.1}
         maxZoom={1.5}
         nodesDraggable={false}
         nodesConnectable={false}
