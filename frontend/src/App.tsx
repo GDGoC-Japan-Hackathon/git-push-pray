@@ -66,16 +66,14 @@ export default function App() {
   const contextParentNode =
     activeTreeNodes.find((n) => n.id === contextParentNodeId) ?? null;
 
-  // ツリーノードが初めて作られたら自動で both 表示に切り替え（PC幅のみ）
+  // ツリーノードの有無に応じて表示モードを自動切り替え
   useEffect(() => {
-    if (
-      activeTreeNodes.length > 0 &&
-      viewMode === "chat" &&
-      window.innerWidth >= 768
-    ) {
-      setViewMode("both");
+    if (activeTreeNodes.length === 0) {
+      setViewMode("chat");
+    } else if (window.innerWidth >= 768) {
+      setViewMode((prev) => (prev === "chat" ? "both" : prev));
     }
-  }, [activeTreeNodes.length, viewMode]);
+  }, [activeTreeNodes.length]);
 
   // URLパラメータとactiveSessionIdを同期
   useEffect(() => {
@@ -199,7 +197,7 @@ export default function App() {
                           artifact?: { title: string; code: string };
                         }) => ({
                           id: nanoid(),
-                          role: m.role as "user" | "assistant",
+                          role: m.role as "user" | "assistant" | "system",
                           content: m.content,
                           artifact: m.artifact,
                         })
@@ -255,7 +253,7 @@ export default function App() {
                       artifact?: { title: string; code: string };
                     }) => ({
                       id: nanoid(),
-                      role: m.role as "user" | "assistant",
+                      role: m.role as "user" | "assistant" | "system",
                       content: m.content,
                       artifact: m.artifact,
                     })
@@ -449,12 +447,13 @@ export default function App() {
                     : {}),
                   messages: isPhaseTransition
                     ? [
-                        ...updatedMessages,
+                        ...updatedMessages.slice(0, -1),
                         {
                           id: nanoid(),
                           role: "system" as const,
                           content: `📚 テーマ: ${doneData.title || s.title}\n学習を開始します！`,
                         },
+                        updatedMessages[updatedMessages.length - 1],
                       ]
                     : updatedMessages,
                 };
