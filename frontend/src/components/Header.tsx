@@ -3,11 +3,12 @@ import {
   MenuIcon,
   MessageSquareIcon,
   NetworkIcon,
+  ClipboardCheckIcon,
 } from "lucide-react";
 import { BotAvatar } from "./BotAvatar";
 import { LoginButton } from "./auth/LoginButton";
 
-export type ViewMode = "chat" | "both" | "tree";
+export type ViewMode = "chat" | "both" | "tree" | "review";
 
 interface Props {
   title: string | null;
@@ -15,6 +16,7 @@ interface Props {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   hideToggle?: boolean;
+  showReviewTab?: boolean;
 }
 
 export function Header({
@@ -23,6 +25,7 @@ export function Header({
   viewMode,
   onViewModeChange,
   hideToggle,
+  showReviewTab,
 }: Props) {
   return (
     <header className="flex items-center gap-2 md:gap-3 px-2 md:px-4 py-2 md:py-3 border-b border-gray-200 bg-white shrink-0">
@@ -71,6 +74,16 @@ export function Header({
             >
               <NetworkIcon size={16} />
             </button>
+            {showReviewTab && (
+              <button
+                onClick={() => onViewModeChange("review")}
+                className={`p-2 transition-colors ${viewMode === "review" ? "bg-blue-50 text-blue-600" : "text-gray-500 hover:bg-gray-50"}`}
+                aria-label="レビュー表示"
+                title="レビュー"
+              >
+                <ClipboardCheckIcon size={16} />
+              </button>
+            )}
           </div>
         )}
         <LoginButton />

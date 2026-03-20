@@ -19,7 +19,7 @@ type Conversation struct {
 	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	UserID    uuid.UUID `gorm:"type:uuid;index;not null" json:"user_id"`
 	Title     string    `gorm:"size:255" json:"title"`
-	Phase     string    `gorm:"size:20;default:'init'" json:"phase"` // "init" or "teaching"
+	Phase     string    `gorm:"size:20;default:'init'" json:"phase"` // "init" | "teaching" | "review"
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -46,4 +46,16 @@ type ConversationTreeNode struct {
 	AnswerMessageID *int64     `gorm:"index" json:"answer_message_id"`   // 回答が抽出されたユーザーメッセージのID
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
+}
+
+type Review struct {
+	ID               uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	ConversationID   uuid.UUID `gorm:"type:uuid;uniqueIndex;not null" json:"conversation_id"`
+	OverallScore     int       `gorm:"not null" json:"overall_score"`
+	Summary          string    `gorm:"type:text;not null" json:"summary"`
+	Strengths        string    `gorm:"type:text" json:"strengths"`
+	Weaknesses       string    `gorm:"type:text" json:"weaknesses"`
+	Advice           string    `gorm:"type:text" json:"advice"`
+	TopicEvaluations string    `gorm:"type:text" json:"topic_evaluations"`
+	CreatedAt        time.Time `json:"created_at"`
 }

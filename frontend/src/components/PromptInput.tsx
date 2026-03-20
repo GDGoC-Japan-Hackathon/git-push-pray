@@ -1,4 +1,4 @@
-import { SendIcon } from "lucide-react";
+import { ClipboardCheckIcon, SendIcon, SparklesIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 interface Props {
@@ -11,6 +11,11 @@ interface Props {
   freeInputMode?: boolean; // 自由入力モード
   freeInputContext?: string | null; // 補足対象のノードテキスト
   onCancelFreeInput?: () => void;
+  onRequestReview?: () => void;
+  isReviewLoading?: boolean;
+  hasMessages?: boolean;
+  onVisualize?: () => void;
+  isVisualizeActive?: boolean;
 }
 
 export function PromptInput({
@@ -23,6 +28,11 @@ export function PromptInput({
   freeInputMode,
   freeInputContext,
   onCancelFreeInput,
+  onRequestReview,
+  isReviewLoading,
+  hasMessages,
+  onVisualize,
+  isVisualizeActive,
 }: Props) {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -77,7 +87,7 @@ export function PromptInput({
 
   return (
     <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-4">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         {freeInputMode && (
           <div className="mb-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700 flex items-center justify-between">
             <span className="truncate">
@@ -102,23 +112,67 @@ export function PromptInput({
             回答中: {selectedQuestion}
           </div>
         )}
-        <div
-          className={`flex gap-2 items-end bg-gray-50 border rounded-2xl px-4 py-3 transition-all
-          ${isDisabled ? "border-gray-100 opacity-60" : "border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"}
-        `}
-        >
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            disabled={isDisabled}
-            rows={1}
-            className="flex-1 bg-transparent resize-none outline-none text-sm text-gray-800 placeholder-gray-400 max-h-[200px] leading-relaxed disabled:cursor-not-allowed"
-            style={{ height: "24px", fontSize: "16px", overflowY: "hidden" }}
-          />
-          <SubmitButton onClick={handleSubmit} disabled={!canSubmit} />
+        <div className="flex items-end gap-2">
+          {hasMessages && !isInitPhase && (
+            <div className="shrink-0 px-3 py-3 text-xs font-medium invisible flex items-center gap-1 border">
+              <ClipboardCheckIcon size={16} />
+              レビューを開始
+            </div>
+          )}
+          <div
+            className={`flex gap-2 items-end flex-1 min-w-0 bg-gray-50 border rounded-2xl px-4 py-3 transition-all
+            ${isDisabled ? "border-gray-100 opacity-60" : "border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"}
+          `}
+          >
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              disabled={isDisabled}
+              rows={1}
+              className="flex-1 bg-transparent resize-none outline-none text-sm text-gray-800 placeholder-gray-400 max-h-[200px] leading-relaxed disabled:cursor-not-allowed"
+              style={{ height: "24px", fontSize: "16px", overflowY: "hidden" }}
+            />
+            {hasMessages && !isInitPhase && (
+              <button
+                onClick={onVisualize}
+                disabled={isDisabled}
+                className={`
+                  flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all shrink-0
+                  ${
+                    isDisabled
+                      ? "text-gray-300 cursor-not-allowed"
+                      : isVisualizeActive
+                        ? "bg-purple-100 text-purple-700 ring-1 ring-purple-300"
+                        : "text-purple-500 hover:bg-purple-50 hover:text-purple-600"
+                  }
+                `}
+              >
+                <SparklesIcon size={14} />
+                ビジュアライズ
+              </button>
+            )}
+            <SubmitButton onClick={handleSubmit} disabled={!canSubmit} />
+          </div>
+          {hasMessages && !isInitPhase && (
+            <button
+              onClick={onRequestReview}
+              disabled={isStreaming || isReviewLoading}
+              className={`
+                flex items-center gap-1 px-3 py-3 rounded-2xl text-xs font-medium transition-all shrink-0 border
+                ${
+                  isStreaming || isReviewLoading
+                    ? "border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed"
+                    : "border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100 hover:border-orange-300"
+                }
+              `}
+            >
+              <ClipboardCheckIcon size={16} />
+              {isReviewLoading ? "レビュー中..." : "レビューを開始"}
+            </button>
+          )}
         </div>
         <div className="flex justify-between items-center mt-2">
           <p className="text-xs text-gray-300">

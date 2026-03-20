@@ -53,6 +53,7 @@ func main() {
 	mux.Handle("/api/sessions", middleware.CORS(auth(http.HandlerFunc(h.Sessions))))
 	mux.Handle("/api/conversation-tree", middleware.CORS(auth(http.HandlerFunc(h.ConversationTree))))
 	mux.Handle("/api/conversation", middleware.CORS(auth(http.HandlerFunc(h.DeleteConversation))))
+	mux.Handle("/api/review", middleware.CORS(auth(http.HandlerFunc(h.Review))))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -64,7 +65,7 @@ func main() {
 		Handler:           mux,
 		ReadTimeout:       10 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
-		WriteTimeout:      60 * time.Second,
+		WriteTimeout:      120 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
 
