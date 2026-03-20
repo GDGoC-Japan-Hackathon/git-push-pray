@@ -1,10 +1,10 @@
-import { useEffect, useRef } from "react";
 import { PenLineIcon, SparklesIcon } from "lucide-react";
-import type { ChatSession, TreeNode } from "../types";
+import { useEffect, useRef } from "react";
 import { SUGGESTIONS } from "../constants";
+import type { ChatSession, TreeNode } from "../types";
+import { BotAvatar } from "./BotAvatar";
 import { Message } from "./Message";
 import { TypingIndicator } from "./TypingIndicator";
-import { BotAvatar } from "./BotAvatar";
 
 interface Props {
   session: ChatSession | null;
@@ -85,9 +85,9 @@ export function ChatArea({
               >
                 <span className="text-xs font-semibold text-gray-400 flex items-center gap-1 mb-0.5">
                   <PenLineIcon size={12} />
-                  補足する
+                  自由回答
                 </span>
-                自由に補足説明する
+                自由に回答する
               </button>
             </div>
           </div>

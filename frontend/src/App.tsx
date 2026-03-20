@@ -1,15 +1,15 @@
-import { useState, useCallback, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
 import { nanoid } from "nanoid";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import type { ChatSession, TreeNode } from "./types";
 
-import { Sidebar } from "./components/Sidebar";
-import { Header, type ViewMode } from "./components/Header";
 import { ChatArea } from "./components/ChatArea";
 import { ConversationTreeView } from "./components/ConversationTreeView";
+import { Header, type ViewMode } from "./components/Header";
 import { PromptInput } from "./components/PromptInput";
+import { Sidebar } from "./components/Sidebar";
 import { useAuth } from "./contexts/AuthContext";
-import { readSSEStream, extractJSONStringField } from "./utils/streamParser";
+import { extractJSONStringField, readSSEStream } from "./utils/streamParser";
 
 // 直前のAI返信で生成された質問だけを返す（ツリー末尾の同一親グループ）
 function getLatestQuestionGroup(nodes: TreeNode[]): TreeNode[] {
@@ -39,7 +39,9 @@ export default function App() {
   const [latestQuestions, setLatestQuestions] = useState<TreeNode[]>([]);
   const [generateUI, setGenerateUI] = useState(false);
   const [freeInputMode, setFreeInputMode] = useState(false);
-  const [contextParentNodeId, setContextParentNodeId] = useState<string | null>(null);
+  const [contextParentNodeId, setContextParentNodeId] = useState<string | null>(
+    null
+  );
   const { user, loading } = useAuth();
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
@@ -48,6 +50,8 @@ export default function App() {
     : [];
   const selectedNode =
     activeTreeNodes.find((n) => n.id === selectedNodeId) ?? null;
+  const contextParentNode =
+    activeTreeNodes.find((n) => n.id === contextParentNodeId) ?? null;
 
   // URLパラメータとactiveSessionIdを同期
   useEffect(() => {
@@ -546,6 +550,8 @@ export default function App() {
   const handleNodeSelect = useCallback((id: string) => {
     setSelectedNodeId((prev) => (prev === id ? null : id)); // 再クリックで選択解除
     setLatestQuestions([]);
+    setFreeInputMode(false);
+    setContextParentNodeId(null);
   }, []);
 
   const handleQuestionCardSelect = useCallback((id: string) => {
@@ -569,12 +575,21 @@ export default function App() {
 
   // 補足する（自由入力モード）- 現在の質問カードの親ノードIDをコンテキストとして保持
   const handleFreeInput = useCallback(() => {
-    const parentId = latestQuestions.length > 0 ? latestQuestions[0].parentId : null;
+    const parentId =
+      latestQuestions.length > 0 ? latestQuestions[0].parentId : null;
     setContextParentNodeId(parentId);
     setSelectedNodeId(null);
     setLatestQuestions([]);
     setFreeInputMode(true);
   }, [latestQuestions]);
+
+  // マインドマップのノードから補足する
+  const handleFreeInputFromNode = useCallback((nodeId: string) => {
+    setContextParentNodeId(nodeId);
+    setSelectedNodeId(null);
+    setLatestQuestions([]);
+    setFreeInputMode(true);
+  }, []);
 
   const isInitPhase = activeSession?.phase === "init";
 
@@ -621,6 +636,7 @@ export default function App() {
                 treeNodes={activeTreeNodes}
                 selectedNodeId={selectedNodeId}
                 onNodeSelect={handleNodeSelect}
+                onFreeInputFromNode={handleFreeInputFromNode}
               />
             </div>
           )}
@@ -653,7 +669,11 @@ export default function App() {
               }
               isInitPhase={isInitPhase}
               freeInputMode={freeInputMode}
-              onCancelFreeInput={() => { setFreeInputMode(false); setContextParentNodeId(null); }}
+              freeInputContext={contextParentNode?.text ?? null}
+              onCancelFreeInput={() => {
+                setFreeInputMode(false);
+                setContextParentNodeId(null);
+              }}
             />
           </div>
         ) : (

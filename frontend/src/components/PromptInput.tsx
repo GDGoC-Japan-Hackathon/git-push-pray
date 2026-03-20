@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import { SendIcon, SparklesIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 interface Props {
   isStreaming: boolean;
@@ -11,6 +11,7 @@ interface Props {
   hasMessages?: boolean; // メッセージがあるか（ビジュアライズボタン表示用）
   isInitPhase?: boolean; // 初期化フェーズ中か
   freeInputMode?: boolean; // 自由入力モード
+  freeInputContext?: string | null; // 補足対象のノードテキスト
   onCancelFreeInput?: () => void;
 }
 
@@ -24,6 +25,7 @@ export function PromptInput({
   hasMessages,
   isInitPhase,
   freeInputMode,
+  freeInputContext,
   onCancelFreeInput,
 }: Props) {
   const [input, setInput] = useState("");
@@ -67,7 +69,7 @@ export function PromptInput({
   const placeholder = isInitPhase
     ? "学びたいテーマを入力... (Enterで送信、Shift+Enterで改行)"
     : freeInputMode
-      ? "補足を入力... (Enterで送信)"
+      ? "自由に回答を入力... (Enterで送信)"
       : requiresSelection && !selectedQuestion
         ? "会話ツリーのノードを選択してください"
         : selectedQuestion
@@ -79,7 +81,9 @@ export function PromptInput({
       <div className="max-w-3xl mx-auto">
         {freeInputMode && (
           <div className="mb-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700 flex items-center justify-between">
-            <span>補足入力中</span>
+            <span className="truncate">
+              自由回答を入力中{freeInputContext ? `：${freeInputContext}` : ""}
+            </span>
             <button
               onClick={onCancelFreeInput}
               className="text-green-500 hover:text-green-700 ml-2"

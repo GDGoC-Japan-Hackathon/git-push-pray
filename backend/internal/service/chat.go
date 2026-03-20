@@ -675,12 +675,34 @@ func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conv
 			}
 		}
 
-		// 補足モード: AIが関連ありと判断→contextParentNodeIDを親に、新トピック→ルートノード
+		// 補足モード: free_inputノードを作成し、その子として新しい質問を生成
 		if isSupplement && contextParentNodeID != "" {
+			var freeInputParentID *uuid.UUID
 			if !parsed.IsNewTopic {
-				activeParentNodeID = contextParentNodeID
+				// 関連あり → contextParentNodeIDの子として作成
+				cpID, err := uuid.Parse(contextParentNodeID)
+				if err == nil {
+					freeInputParentID = &cpID
+				}
 			}
-			// IsNewTopic=true の場合、activeParentNodeID は空のまま → ルートノード作成
+			// IsNewTopic=true の場合、freeInputParentID は nil → ルート直下
+
+			freeInputNode := &model.ConversationTreeNode{
+				ID:             uuid.New(),
+				ConversationID: conv.ID,
+				MessageID:      userMsg.ID,
+				ParentNodeID:   freeInputParentID,
+				Text:           "自由回答",
+				NodeType:       "free_input",
+				Answer:         parsed.AnswerSummary,
+				AnswerMessageID: func() *int64 { v := userMsg.ID; return &v }(),
+			}
+			if err := repository.CreateTreeNode(freeInputNode); err != nil {
+				log.Printf("failed to create free_input tree node: %v", err)
+			} else {
+				// 新しい質問はこのfree_inputノードの子にする
+				activeParentNodeID = freeInputNode.ID.String()
+			}
 		}
 
 		// DBに保存（assistant reply）
