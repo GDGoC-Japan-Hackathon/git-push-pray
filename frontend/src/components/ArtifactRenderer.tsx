@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Code, Eye, Copy, Check } from "lucide-react";
+import { Code, Eye, Copy, Check, Maximize2, X } from "lucide-react";
+import { createPortal } from "react-dom";
 import type { Artifact } from "../types";
 
 const RESIZE_SCRIPT = `<script>
@@ -47,7 +48,9 @@ export function ArtifactRenderer({ artifact }: Props) {
   const [showCode, setShowCode] = useState(false);
   const [iframeHeight, setIframeHeight] = useState(300);
   const [copied, setCopied] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const fullscreenIframeRef = useRef<HTMLIFrameElement>(null);
 
   const handleMessage = useCallback((event: MessageEvent) => {
     if (
@@ -64,6 +67,19 @@ export function ArtifactRenderer({ artifact }: Props) {
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, [handleMessage]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsFullscreen(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [isFullscreen]);
 
   const handleCopy = async () => {
     try {
@@ -109,6 +125,13 @@ export function ArtifactRenderer({ artifact }: Props) {
           >
             {showCode ? <Eye size={14} /> : <Code size={14} />}
           </button>
+          <button
+            onClick={() => setIsFullscreen(true)}
+            className="p-1 rounded hover:bg-gray-200 text-gray-500 transition-colors"
+            title="全画面表示"
+          >
+            <Maximize2 size={14} />
+          </button>
         </div>
       </div>
 
@@ -126,6 +149,43 @@ export function ArtifactRenderer({ artifact }: Props) {
           title={artifact.title}
         />
       )}
+
+      {/* Fullscreen Modal */}
+      {isFullscreen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex flex-col bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsFullscreen(false)}
+          >
+            <div
+              className="flex flex-col m-4 md:m-8 flex-1 rounded-xl overflow-hidden bg-white shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+                <span className="text-sm font-medium text-gray-700 truncate">
+                  {artifact.title}
+                </span>
+                <button
+                  onClick={() => setIsFullscreen(false)}
+                  className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-500 transition-colors"
+                  title="閉じる"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              {/* Modal Content */}
+              <iframe
+                ref={fullscreenIframeRef}
+                srcDoc={srcdoc}
+                sandbox="allow-scripts"
+                className="flex-1 w-full border-none"
+                title={artifact.title}
+              />
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
