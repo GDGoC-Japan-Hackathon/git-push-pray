@@ -376,7 +376,7 @@ func (svc *ChatService) chatStreamInit(ctx context.Context, conv *model.Conversa
 		var accumulated strings.Builder
 		chunkCount := 0
 
-		for resp, err := range svc.client.Models.GenerateContentStream(ctx, "gemini-3-flash-preview", contents, config) {
+		for resp, err := range svc.client.Models.GenerateContentStream(ctx, "gemini-2.5-flash", contents, config) {
 			if err != nil {
 				log.Printf("Init stream error: %v", err)
 				errJSON, _ := json.Marshal(map[string]string{"error": err.Error()})
@@ -513,7 +513,7 @@ func (svc *ChatService) chatStreamInit(ctx context.Context, conv *model.Conversa
 			},
 		}
 
-		teachingResp, err := svc.client.Models.GenerateContent(ctx, "gemini-3-flash-preview", teachingContents, teachingConfig)
+		teachingResp, err := svc.client.Models.GenerateContent(ctx, "gemini-2.5-flash", teachingContents, teachingConfig)
 		if err != nil {
 			log.Printf("Teaching initial question generation error: %v", err)
 			// エラーでもフェーズ遷移済みのdoneを返す
@@ -768,7 +768,7 @@ func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conv
 		var accumulated strings.Builder
 		chunkCount := 0
 
-		for resp, err := range svc.client.Models.GenerateContentStream(ctx, "gemini-3-flash-preview", contents, config) {
+		for resp, err := range svc.client.Models.GenerateContentStream(ctx, "gemini-2.5-flash", contents, config) {
 			if err != nil {
 				log.Printf("Stream error: %v", err)
 				errJSON, _ := json.Marshal(map[string]string{"error": err.Error()})
