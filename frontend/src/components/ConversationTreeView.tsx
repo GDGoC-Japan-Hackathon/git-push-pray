@@ -19,9 +19,9 @@ const NODE_WIDTH = 240;
 const NODE_HEIGHT_Q = 60; // 質問のみ
 const NODE_HEIGHT_QA = 110; // 質問＋回答
 const NODE_HEIGHT_SUPP = 40; // 補足ボタン
-const NODE_GAP_X = 60;
+const NODE_GAP_X = 20;
 // Q+A両方表示時の最大ノード高さを考慮した余白
-const NODE_GAP_Y = 180;
+const NODE_GAP_Y = 170;
 
 // 1階層あたりのアニメーション遅延（秒）
 const ANIM_STEP = 0.3;
@@ -526,6 +526,8 @@ export function ConversationTreeView({
         edgeTypes={edgeTypes}
         fitView
         fitViewOptions={{ padding: 0.3 }}
+        minZoom={0.3}
+        maxZoom={1.5}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
