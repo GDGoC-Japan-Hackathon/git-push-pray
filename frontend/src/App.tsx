@@ -39,6 +39,7 @@ export default function App() {
   const [latestQuestions, setLatestQuestions] = useState<TreeNode[]>([]);
   const [generateUI, setGenerateUI] = useState(false);
   const [freeInputMode, setFreeInputMode] = useState(false);
+  const [contextParentNodeId, setContextParentNodeId] = useState<string | null>(null);
   const { user, loading } = useAuth();
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
@@ -196,6 +197,7 @@ export default function App() {
     setSelectedNodeId(null);
     setLatestQuestions([]);
     setFreeInputMode(false);
+    setContextParentNodeId(null);
     setSidebarOpen(false);
     navigate("/");
   }, [navigate]);
@@ -320,7 +322,8 @@ export default function App() {
         }
 
         const currentSession = sessions.find((s) => s.id === sessionId);
-        const isInitPhase = !currentSession || currentSession.phase === "init";
+        const isInitPhase =
+          currentSession != null ? currentSession.phase === "init" : false;
 
         const body: Record<string, string | boolean> = {
           user_id: user.uid,
@@ -332,6 +335,11 @@ export default function App() {
         if (!isInitPhase && selectedNode)
           body.answering_question = selectedNode.text;
         if (!isInitPhase && generateUI) body.generate_ui = true;
+        if (!isInitPhase && freeInputMode) {
+          body.is_supplement = true;
+          if (contextParentNodeId)
+            body.context_parent_node_id = contextParentNodeId;
+        }
 
         const resp = await fetch(`${apiBase}/api/chat`, {
           method: "POST",
@@ -390,29 +398,39 @@ export default function App() {
             // 最終データでメッセージを確定（streaming解除 + artifact付与）+ phase更新
             const targetId = actualId !== sessionId ? actualId : sessionId;
             setSessions((prev) =>
-              prev.map((s) =>
-                s.id === targetId
-                  ? {
-                      ...s,
-                      phase: donePhase,
-                      // テーマ決定でteachingに遷移した場合、タイトルも更新
-                      ...(donePhase === "teaching" && s.phase === "init"
-                        ? { title: doneData.title || s.title }
-                        : {}),
-                      messages: s.messages.map((m) =>
-                        m.id === msgId
-                          ? {
-                              ...m,
-                              content: doneData.reply,
-                              isStreaming: false,
-                              streamingCode: undefined,
-                              artifact: doneData.artifact ?? undefined,
-                            }
-                          : m
-                      ),
-                    }
-                  : s
-              )
+              prev.map((s) => {
+                if (s.id !== targetId) return s;
+                const isPhaseTransition =
+                  donePhase === "teaching" && s.phase === "init";
+                const updatedMessages = s.messages.map((m) =>
+                  m.id === msgId
+                    ? {
+                        ...m,
+                        content: doneData.reply,
+                        isStreaming: false,
+                        streamingCode: undefined,
+                        artifact: doneData.artifact ?? undefined,
+                      }
+                    : m
+                );
+                return {
+                  ...s,
+                  phase: donePhase,
+                  ...(isPhaseTransition
+                    ? { title: doneData.title || s.title }
+                    : {}),
+                  messages: isPhaseTransition
+                    ? [
+                        ...updatedMessages,
+                        {
+                          id: nanoid(),
+                          role: "system" as const,
+                          content: `📚 テーマ: ${doneData.title || s.title}\n学習を開始します！`,
+                        },
+                      ]
+                    : updatedMessages,
+                };
+              })
             );
 
             // initフェーズ中は質問カードやツリー不要
@@ -483,6 +501,7 @@ export default function App() {
         setSelectedNodeId(null);
         setGenerateUI(false);
         setFreeInputMode(false);
+        setContextParentNodeId(null);
         setIsStreaming(false);
       } catch (err) {
         console.error("Failed to fetch from backend:", err);
@@ -514,6 +533,8 @@ export default function App() {
       selectedNodeId,
       selectedNode,
       generateUI,
+      freeInputMode,
+      contextParentNodeId,
       user,
       apiBase,
       fetchConversationTree,
@@ -531,6 +552,7 @@ export default function App() {
     setSelectedNodeId(id);
     setLatestQuestions([]);
     setFreeInputMode(false);
+    setContextParentNodeId(null);
   }, []);
 
   // 質問カードのvisualizeクリック → ノード選択 + ビジュアライズモードON
@@ -545,12 +567,14 @@ export default function App() {
     setGenerateUI((prev) => !prev);
   }, []);
 
-  // 自分の質問を追加（自由入力モード）
+  // 補足する（自由入力モード）- 現在の質問カードの親ノードIDをコンテキストとして保持
   const handleFreeInput = useCallback(() => {
+    const parentId = latestQuestions.length > 0 ? latestQuestions[0].parentId : null;
+    setContextParentNodeId(parentId);
     setSelectedNodeId(null);
     setLatestQuestions([]);
     setFreeInputMode(true);
-  }, []);
+  }, [latestQuestions]);
 
   const isInitPhase = activeSession?.phase === "init";
 
@@ -629,7 +653,7 @@ export default function App() {
               }
               isInitPhase={isInitPhase}
               freeInputMode={freeInputMode}
-              onCancelFreeInput={() => setFreeInputMode(false)}
+              onCancelFreeInput={() => { setFreeInputMode(false); setContextParentNodeId(null); }}
             />
           </div>
         ) : (

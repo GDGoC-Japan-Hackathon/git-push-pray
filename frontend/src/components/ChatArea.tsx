@@ -85,9 +85,9 @@ export function ChatArea({
               >
                 <span className="text-xs font-semibold text-gray-400 flex items-center gap-1 mb-0.5">
                   <PenLineIcon size={12} />
-                  自分の質問を追加
+                  補足する
                 </span>
-                自由に質問を入力する
+                自由に補足説明する
               </button>
             </div>
           </div>

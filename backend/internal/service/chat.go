@@ -95,6 +95,7 @@ type initReply struct {
 type geminiReply struct {
 	Reply         string `json:"reply"`
 	AnswerSummary string `json:"answer_summary"`
+	IsNewTopic    bool   `json:"is_new_topic"`
 	Questions     []struct {
 		Summary string `json:"summary"`
 		Type    string `json:"type"` // "question" or "visualize"
@@ -123,7 +124,7 @@ func EnsureUser(firebaseUID, name, email string) (*model.User, error) {
 	return repository.FindOrCreateUser(firebaseUID, name, email)
 }
 
-func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conversationIDStr, message, parentNodeID, answeringQuestion string, generateUI bool) (<-chan StreamEvent, error) {
+func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conversationIDStr, message, parentNodeID, answeringQuestion string, generateUI, isSupplement bool, contextParentNodeID string) (<-chan StreamEvent, error) {
 	var conv *model.Conversation
 	isNewConversation := false
 
@@ -166,7 +167,7 @@ func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conver
 	}
 
 	// teachingフェーズ: 既存の教育フロー
-	return svc.chatStreamTeaching(ctx, conv, user, message, parentNodeID, answeringQuestion, generateUI)
+	return svc.chatStreamTeaching(ctx, conv, user, message, parentNodeID, answeringQuestion, generateUI, isSupplement, contextParentNodeID)
 }
 
 // chatStreamInit は初期化フェーズ（テーマ絞り込み）のストリーム処理
@@ -178,6 +179,9 @@ func (svc *ChatService) chatStreamInit(ctx context.Context, conv *model.Conversa
 
 	var contents []*genai.Content
 	for _, m := range dbMessages {
+		if m.Role == "system" {
+			continue // systemメッセージはGeminiに渡さない
+		}
 		role := m.Role
 		if role == "assistant" {
 			role = "model"
@@ -292,8 +296,8 @@ func (svc *ChatService) chatStreamInit(ctx context.Context, conv *model.Conversa
 			log.Printf("failed to update conversation phase: %v", err)
 		}
 
-		// ルートツリーノードを作成
-		rootMsgPlaceholder, err := repository.CreateMessage(conv.ID, "user", decidedTheme, 0, "", "")
+		// ルートツリーノードを作成（ユーザー発話ではないため role は system とする）
+		rootMsgPlaceholder, err := repository.CreateMessage(conv.ID, "system", decidedTheme, 0, "", "")
 		if err != nil {
 			log.Printf("failed to create root message placeholder: %v", err)
 			// エラーでもdoneは返す
@@ -436,9 +440,14 @@ func (svc *ChatService) chatStreamInit(ctx context.Context, conv *model.Conversa
 			})
 		}
 
+		// parsed.Reply（init AI応答）とteachingParsed.Reply（教育AI初回応答）を結合して返す
+		combinedReply := parsed.Reply
+		if teachingParsed.Reply != "" {
+			combinedReply += "\n\n" + teachingParsed.Reply
+		}
 		doneResp := &model.ChatResponse{
 			ConversationID: conv.ID.String(),
-			Reply:          parsed.Reply,
+			Reply:          combinedReply,
 			AnswerSummary:  "",
 			Questions:      newNodes,
 			Phase:          "teaching",
@@ -452,7 +461,7 @@ func (svc *ChatService) chatStreamInit(ctx context.Context, conv *model.Conversa
 }
 
 // chatStreamTeaching は教育フェーズのストリーム処理（既存ロジック）
-func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conversation, user *model.User, message, parentNodeID, answeringQuestion string, generateUI bool) (<-chan StreamEvent, error) {
+func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conversation, user *model.User, message, parentNodeID, answeringQuestion string, generateUI, isSupplement bool, contextParentNodeID string) (<-chan StreamEvent, error) {
 	// 回答済みチェック（ノードが同じ会話に属するかも検証）
 	if parentNodeID != "" {
 		pID, err := uuid.Parse(parentNodeID)
@@ -491,6 +500,9 @@ func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conv
 
 	var contents []*genai.Content
 	for i, m := range dbMessages {
+		if m.Role == "system" {
+			continue // systemメッセージはGeminiに渡さない
+		}
 		role := m.Role
 		if role == "assistant" {
 			role = "model"
@@ -508,7 +520,26 @@ func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conv
 
 	// どの質問に回答しているかをメッセージに付加
 	userMessage := message
-	if answeringQuestion != "" {
+	if isSupplement {
+		// 補足モード: コンテキスト親ノードの情報を付加
+		if contextParentNodeID != "" {
+			cpID, err := uuid.Parse(contextParentNodeID)
+			if err == nil {
+				contextNode, err := repository.GetTreeNodeByID(cpID)
+				if err == nil {
+					if contextNode.ConversationID != conv.ID {
+						log.Printf("invalid context_parent_node_id: node %s does not belong to conversation %s", contextParentNodeID, conv.ID)
+						// 不正なノードは無視して通常の補足として扱う
+						userMessage = fmt.Sprintf("[補足説明です]\n\n%s", message)
+					} else {
+						userMessage = fmt.Sprintf("[補足説明です。現在の話題: %s]\n[is_new_topicをtrueにする場合: この補足が現在の話題と無関係な場合のみ]\n\n%s", contextNode.Text, message)
+					}
+				}
+			}
+		} else {
+			userMessage = fmt.Sprintf("[補足説明です]\n\n%s", message)
+		}
+	} else if answeringQuestion != "" {
 		userMessage = fmt.Sprintf("[回答している質問: %s]\n\n%s", answeringQuestion, message)
 	}
 	contents = append(contents, &genai.Content{
@@ -545,6 +576,15 @@ func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conv
 		},
 	}
 	requiredFields := []string{"reply", "answer_summary", "questions"}
+
+	// 補足モードの場合、is_new_topicフィールドを追加してAIに判断させる
+	if isSupplement && contextParentNodeID != "" {
+		schemaProps["is_new_topic"] = &genai.Schema{
+			Type:        genai.TypeBoolean,
+			Description: "この補足が現在の話題と全く無関係な新しいトピックであればtrue、関連があればfalse",
+		}
+		requiredFields = append(requiredFields, "is_new_topic")
+	}
 
 	// generateUI=true の場合のみartifactスキーマを追加（必須）
 	if generateUI {
@@ -633,6 +673,14 @@ func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conv
 					log.Printf("failed to update tree node answer (nodeID=%s): %v", pID, err)
 				}
 			}
+		}
+
+		// 補足モード: AIが関連ありと判断→contextParentNodeIDを親に、新トピック→ルートノード
+		if isSupplement && contextParentNodeID != "" {
+			if !parsed.IsNewTopic {
+				activeParentNodeID = contextParentNodeID
+			}
+			// IsNewTopic=true の場合、activeParentNodeID は空のまま → ルートノード作成
 		}
 
 		// DBに保存（assistant reply）
@@ -766,6 +814,9 @@ func (svc *ChatService) History(userID uuid.UUID, conversationIDStr string) (*mo
 
 	messages := make([]model.HistoryMessage, 0, len(dbMessages))
 	for _, m := range dbMessages {
+		if m.Role == "system" {
+			continue // systemメッセージ（ルートノード用プレースホルダー等）は履歴に含めない
+		}
 		hm := model.HistoryMessage{Role: m.Role, Content: m.Content}
 		if m.ArtifactCode != "" {
 			hm.Artifact = &model.Artifact{Title: m.ArtifactTitle, Code: m.ArtifactCode}

@@ -5,7 +5,7 @@ export interface Artifact {
 
 export interface ChatMessage {
   id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
   artifact?: Artifact;
   isStreaming?: boolean; // ストリーミング中

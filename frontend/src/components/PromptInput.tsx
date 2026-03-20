@@ -67,7 +67,7 @@ export function PromptInput({
   const placeholder = isInitPhase
     ? "学びたいテーマを入力... (Enterで送信、Shift+Enterで改行)"
     : freeInputMode
-      ? "自分の質問を入力... (Enterで送信)"
+      ? "補足を入力... (Enterで送信)"
       : requiresSelection && !selectedQuestion
         ? "会話ツリーのノードを選択してください"
         : selectedQuestion
@@ -79,7 +79,7 @@ export function PromptInput({
       <div className="max-w-3xl mx-auto">
         {freeInputMode && (
           <div className="mb-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700 flex items-center justify-between">
-            <span>自分の質問を入力中</span>
+            <span>補足入力中</span>
             <button
               onClick={onCancelFreeInput}
               className="text-green-500 hover:text-green-700 ml-2"

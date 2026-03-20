@@ -1,12 +1,14 @@
 package model
 
 type ChatRequest struct {
-	UserID            string `json:"user_id"`
-	ConversationID    string `json:"conversation_id"`
-	Message           string `json:"message"`
-	ParentNodeID      string `json:"parent_node_id"`
-	AnsweringQuestion string `json:"answering_question"`
-	GenerateUI        bool   `json:"generate_ui"`
+	UserID              string `json:"user_id"`
+	ConversationID      string `json:"conversation_id"`
+	Message             string `json:"message"`
+	ParentNodeID        string `json:"parent_node_id"`
+	AnsweringQuestion   string `json:"answering_question"`
+	GenerateUI          bool   `json:"generate_ui"`
+	IsSupplement        bool   `json:"is_supplement"`
+	ContextParentNodeID string `json:"context_parent_node_id"`
 }
 
 type QuestionNode struct {
