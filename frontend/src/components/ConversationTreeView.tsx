@@ -165,6 +165,7 @@ function QANode({ data }: NodeProps) {
   const d = data as unknown as QANodeData;
   const answered = d.answer !== "";
   const isFreeInput = d.nodeType === "free_input";
+  const isVisualize = d.nodeType === "visualize";
   const animStyle = d.isNew
     ? { width: NODE_WIDTH, animationDelay: `${d.depth * ANIM_STEP}s` }
     : { width: NODE_WIDTH };
@@ -202,17 +203,26 @@ function QANode({ data }: NodeProps) {
     );
   }
 
+  // ボーダー色の決定
+  let borderClass: string;
+  if (answered) {
+    borderClass = isVisualize
+      ? "border-purple-300 cursor-not-allowed"
+      : "border-green-300 cursor-not-allowed";
+  } else if (d.selected) {
+    borderClass = isVisualize
+      ? "border-purple-500 shadow-purple-200 shadow-md cursor-pointer"
+      : "border-blue-500 shadow-blue-200 shadow-md cursor-pointer";
+  } else {
+    borderClass = isVisualize
+      ? "border-purple-200 hover:border-purple-400 hover:shadow-md cursor-pointer"
+      : "border-gray-200 hover:border-blue-300 hover:shadow-md cursor-pointer";
+  }
+
   return (
     <div
       style={animStyle}
-      className={`rounded-xl shadow-sm border-2 transition-all overflow-hidden ${d.isNew ? "node-enter" : ""}
-        ${
-          answered
-            ? "border-green-300 cursor-not-allowed"
-            : d.selected
-              ? "border-blue-500 shadow-blue-200 shadow-md cursor-pointer"
-              : "border-gray-200 hover:border-blue-300 hover:shadow-md cursor-pointer"
-        }`}
+      className={`rounded-xl shadow-sm border-2 transition-all overflow-hidden ${d.isNew ? "node-enter" : ""} ${borderClass}`}
     >
       <Handle
         type="target"
@@ -221,15 +231,35 @@ function QANode({ data }: NodeProps) {
       />
 
       {/* 質問エリア */}
-      <div className={`px-3 py-2 ${answered ? "bg-blue-50" : "bg-white"}`}>
-        <p className="text-xs font-semibold text-blue-500 mb-0.5">Q</p>
+      <div
+        className={`px-3 py-2 ${
+          answered
+            ? isVisualize
+              ? "bg-purple-50"
+              : "bg-blue-50"
+            : isVisualize
+              ? "bg-purple-50/40"
+              : "bg-white"
+        }`}
+      >
+        <p
+          className={`text-xs font-semibold mb-0.5 ${isVisualize ? "text-purple-500" : "text-blue-500"}`}
+        >
+          Q
+        </p>
         <p className="text-sm text-gray-800 leading-snug">{d.text}</p>
       </div>
 
       {/* 回答エリア（回答済みの場合のみ表示） */}
       {answered && (
-        <div className="px-3 py-2 bg-green-50 border-t border-gray-100">
-          <p className="text-xs font-semibold text-green-600 mb-0.5">A</p>
+        <div
+          className={`px-3 py-2 border-t border-gray-100 ${isVisualize ? "bg-purple-50" : "bg-green-50"}`}
+        >
+          <p
+            className={`text-xs font-semibold mb-0.5 ${isVisualize ? "text-purple-600" : "text-green-600"}`}
+          >
+            A
+          </p>
           <p className="text-sm text-gray-700 leading-snug">{d.answer}</p>
         </div>
       )}
