@@ -66,16 +66,14 @@ export default function App() {
   const contextParentNode =
     activeTreeNodes.find((n) => n.id === contextParentNodeId) ?? null;
 
-  // ツリーノードが初めて作られたら自動で both 表示に切り替え（PC幅のみ）
+  // ツリーノードの有無に応じて表示モードを自動切り替え
   useEffect(() => {
-    if (
-      activeTreeNodes.length > 0 &&
-      viewMode === "chat" &&
-      window.innerWidth >= 768
-    ) {
-      setViewMode("both");
+    if (activeTreeNodes.length === 0) {
+      setViewMode("chat");
+    } else if (window.innerWidth >= 768) {
+      setViewMode((prev) => (prev === "chat" ? "both" : prev));
     }
-  }, [activeTreeNodes.length, viewMode]);
+  }, [activeTreeNodes.length]);
 
   // URLパラメータとactiveSessionIdを同期
   useEffect(() => {
