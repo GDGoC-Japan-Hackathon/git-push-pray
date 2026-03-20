@@ -83,6 +83,7 @@ const artifactInstruction = `
 
 【技術要件】
 ・codeにはReact (JSX) コンポーネントを書くこと。必ず「export default function App() { return (...) }」の形式で始めること。
+・コードは必ず適切な改行とインデントを含めること。一行にまとめず、読みやすい形式で出力すること。
 ・HTMLタグ（<!DOCTYPE>, <html>, <body>, <script>）は一切書かないこと。CDN読み込みも不要。
 ・Tailwind CSSのユーティリティクラスが使える。積極的に使うこと。
 ・以下のライブラリがimport可能（必要に応じて使う）:
@@ -129,7 +130,8 @@ export default function App() {
     </div>
   );
 }
-※上記はあくまで形式の参考。実際の内容は会話に基づいて作成すること。`
+※上記はあくまで形式の参考。実際の内容は会話に基づいて作成すること。
+コードは一行にまとめて生成するのではなく、自然な改行を含めて生成してください。`
 
 const artifactForceInstruction = `
 
@@ -302,7 +304,7 @@ func (svc *ChatService) chatStreamInit(ctx context.Context, conv *model.Conversa
 		var accumulated strings.Builder
 		chunkCount := 0
 
-		for resp, err := range svc.client.Models.GenerateContentStream(ctx, "gemini-2.5-flash", contents, config) {
+		for resp, err := range svc.client.Models.GenerateContentStream(ctx, "gemini-3-flash-preview", contents, config) {
 			if err != nil {
 				log.Printf("Init stream error: %v", err)
 				errJSON, _ := json.Marshal(map[string]string{"error": err.Error()})
@@ -439,7 +441,7 @@ func (svc *ChatService) chatStreamInit(ctx context.Context, conv *model.Conversa
 			},
 		}
 
-		teachingResp, err := svc.client.Models.GenerateContent(ctx, "gemini-2.5-flash", teachingContents, teachingConfig)
+		teachingResp, err := svc.client.Models.GenerateContent(ctx, "gemini-3-flash-preview", teachingContents, teachingConfig)
 		if err != nil {
 			log.Printf("Teaching initial question generation error: %v", err)
 			// エラーでもフェーズ遷移済みのdoneを返す
@@ -690,7 +692,7 @@ func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conv
 		var accumulated strings.Builder
 		chunkCount := 0
 
-		for resp, err := range svc.client.Models.GenerateContentStream(ctx, "gemini-2.5-flash", contents, config) {
+		for resp, err := range svc.client.Models.GenerateContentStream(ctx, "gemini-3-flash-preview", contents, config) {
 			if err != nil {
 				log.Printf("Stream error: %v", err)
 				errJSON, _ := json.Marshal(map[string]string{"error": err.Error()})
