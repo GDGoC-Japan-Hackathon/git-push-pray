@@ -95,7 +95,6 @@ type initReply struct {
 type geminiReply struct {
 	Reply         string `json:"reply"`
 	AnswerSummary string `json:"answer_summary"`
-	IsNewTopic    bool   `json:"is_new_topic"`
 	Questions     []struct {
 		Summary string `json:"summary"`
 		Type    string `json:"type"` // "question" or "visualize"
@@ -532,7 +531,7 @@ func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conv
 						// 不正なノードは無視して通常の補足として扱う
 						userMessage = fmt.Sprintf("[補足説明です]\n\n%s", message)
 					} else {
-						userMessage = fmt.Sprintf("[補足説明です。現在の話題: %s]\n[is_new_topicをtrueにする場合: この補足が現在の話題と無関係な場合のみ]\n\n%s", contextNode.Text, message)
+						userMessage = fmt.Sprintf("[補足説明です。現在の話題: %s]\n\n%s", contextNode.Text, message)
 					}
 				}
 			}
@@ -576,15 +575,6 @@ func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conv
 		},
 	}
 	requiredFields := []string{"reply", "answer_summary", "questions"}
-
-	// 補足モードの場合、is_new_topicフィールドを追加してAIに判断させる
-	if isSupplement && contextParentNodeID != "" {
-		schemaProps["is_new_topic"] = &genai.Schema{
-			Type:        genai.TypeBoolean,
-			Description: "この補足が現在の話題と全く無関係な新しいトピックであればtrue、関連があればfalse",
-		}
-		requiredFields = append(requiredFields, "is_new_topic")
-	}
 
 	// generateUI=true の場合のみartifactスキーマを追加（必須）
 	if generateUI {
@@ -676,16 +666,13 @@ func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conv
 		}
 
 		// 補足モード: free_inputノードを作成し、その子として新しい質問を生成
+		// ユーザーが明示的にノードを選んでいるので、常にそのノードの子にする
 		if isSupplement && contextParentNodeID != "" {
 			var freeInputParentID *uuid.UUID
-			if !parsed.IsNewTopic {
-				// 関連あり → contextParentNodeIDの子として作成
-				cpID, err := uuid.Parse(contextParentNodeID)
-				if err == nil {
-					freeInputParentID = &cpID
-				}
+			cpID, err := uuid.Parse(contextParentNodeID)
+			if err == nil {
+				freeInputParentID = &cpID
 			}
-			// IsNewTopic=true の場合、freeInputParentID は nil → ルート直下
 
 			freeInputAnswer := parsed.AnswerSummary
 			if freeInputAnswer == "" {
