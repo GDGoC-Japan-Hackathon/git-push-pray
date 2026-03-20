@@ -216,7 +216,7 @@ export function ConversationTreeView({
     const supplementParents = new Map<string, string>(); // supplementId → parentNodeId
 
     for (const n of treeNodes) {
-      if (n.answer !== "" && n.parentId !== "") {
+      if (n.answer !== "" || n.parentId === "") {
         // この回答済みノードの子として「＋補足する」を追加
         const suppId = `supp-${n.id}`;
         supplementIds.push(suppId);

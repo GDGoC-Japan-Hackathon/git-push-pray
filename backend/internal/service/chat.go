@@ -687,6 +687,14 @@ func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conv
 			}
 			// IsNewTopic=true の場合、freeInputParentID は nil → ルート直下
 
+			freeInputAnswer := parsed.AnswerSummary
+			if freeInputAnswer == "" {
+				// AIが要約を返さなかった場合、メッセージの先頭を使用
+				freeInputAnswer = message
+				if len([]rune(freeInputAnswer)) > 30 {
+					freeInputAnswer = string([]rune(freeInputAnswer)[:30]) + "…"
+				}
+			}
 			freeInputNode := &model.ConversationTreeNode{
 				ID:             uuid.New(),
 				ConversationID: conv.ID,
@@ -694,7 +702,7 @@ func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conv
 				ParentNodeID:   freeInputParentID,
 				Text:           "自由回答",
 				NodeType:       "free_input",
-				Answer:         parsed.AnswerSummary,
+				Answer:         freeInputAnswer,
 				AnswerMessageID: func() *int64 { v := userMsg.ID; return &v }(),
 			}
 			if err := repository.CreateTreeNode(freeInputNode); err != nil {
