@@ -310,7 +310,7 @@ function AddSupplementNode({ data }: NodeProps) {
         position={Position.Top}
         style={{ opacity: 0, pointerEvents: "none" }}
       />
-      <div className="px-3 py-2.5 flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-gray-600">
+      <div className="px-3 py-2.5 flex items-center justify-center gap-1.5 text-xs text-gray-500 hover:text-gray-700">
         <PenLineIcon size={12} />
         自由に回答する
       </div>

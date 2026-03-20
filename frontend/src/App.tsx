@@ -666,7 +666,9 @@ export default function App() {
                 selectedNodeId={selectedNodeId}
                 onNodeSelect={handleNodeSelect}
                 onFreeInputFromNode={handleFreeInputFromNode}
-                freeInputParentNodeId={freeInputMode ? contextParentNodeId : null}
+                freeInputParentNodeId={
+                  freeInputMode ? contextParentNodeId : null
+                }
               />
             </div>
           )}
@@ -690,6 +692,9 @@ export default function App() {
               isVisualizeActive={generateUI}
               selectedQuestion={
                 isInitPhase ? null : (selectedNode?.text ?? null)
+              }
+              selectedNodeType={
+                isInitPhase ? null : (selectedNode?.type ?? null)
               }
               requiresSelection={
                 !isInitPhase && !freeInputMode && activeTreeNodes.length > 0
