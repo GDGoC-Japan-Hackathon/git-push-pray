@@ -107,7 +107,10 @@ function AnimatedEdge({
   }
 
   // 新規エッジ: アニメーション付き
-  const edgeDelay = Math.max(0, (targetDepth - 1) * ANIM_STEP + ANIM_STEP * 0.4);
+  const edgeDelay = Math.max(
+    0,
+    (targetDepth - 1) * ANIM_STEP + ANIM_STEP * 0.4
+  );
 
   if (isDashed) {
     return (
@@ -411,7 +414,8 @@ export function ConversationTreeView({
           target: n.id,
           type: "animated",
           data: {
-            targetDepth: (depthMap.get(n.id) ?? 1) - (edgeIsNew ? minNewDepth : 0),
+            targetDepth:
+              (depthMap.get(n.id) ?? 1) - (edgeIsNew ? minNewDepth : 0),
             isNew: edgeIsNew,
           },
           ...(edgeIsNew
@@ -437,7 +441,8 @@ export function ConversationTreeView({
         type: "animated",
         style: { strokeDasharray: "5 5", stroke: "#d1d5db" },
         data: {
-          targetDepth: (depthMap.get(suppId) ?? 1) - (edgeIsNew ? minNewDepth : 0),
+          targetDepth:
+            (depthMap.get(suppId) ?? 1) - (edgeIsNew ? minNewDepth : 0),
           isNew: edgeIsNew,
         },
         ...(edgeIsNew
