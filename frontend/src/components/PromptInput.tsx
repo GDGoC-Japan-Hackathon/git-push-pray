@@ -7,6 +7,7 @@ interface Props {
   onVisualize?: () => void;
   isVisualizeActive?: boolean;
   selectedQuestion?: string | null; // 会話ツリーで選択中の質問
+  selectedNodeType?: "question" | "visualize" | "free_input" | null;
   requiresSelection?: boolean; // 選択必須モード（会話ツリー表示中）
   hasMessages?: boolean; // メッセージがあるか（ビジュアライズボタン表示用）
   isInitPhase?: boolean; // 初期化フェーズ中か
@@ -21,6 +22,7 @@ export function PromptInput({
   onVisualize,
   isVisualizeActive,
   selectedQuestion,
+  selectedNodeType,
   requiresSelection,
   hasMessages,
   isInitPhase,
@@ -93,7 +95,13 @@ export function PromptInput({
           </div>
         )}
         {selectedQuestion && !freeInputMode && (
-          <div className="mb-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 truncate">
+          <div
+            className={`mb-2 px-3 py-1.5 rounded-lg text-xs truncate border ${
+              selectedNodeType === "visualize"
+                ? "bg-purple-50 border-purple-200 text-purple-700"
+                : "bg-blue-50 border-blue-200 text-blue-700"
+            }`}
+          >
             回答中: {selectedQuestion}
           </div>
         )}

@@ -19,8 +19,8 @@ export const LoginButton: React.FC = () => {
 
   if (user) {
     return (
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 md:gap-4">
+        <div className="hidden md:flex items-center gap-2">
           {user.photoURL ? (
             <img
               src={user.photoURL}
@@ -38,10 +38,10 @@ export const LoginButton: React.FC = () => {
         </div>
         <button
           onClick={logout}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors border border-red-200"
+          className="flex items-center gap-2 p-1.5 md:px-4 md:py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors md:border md:border-red-200"
         >
-          <LogOut size={16} />
-          <span>Logout</span>
+          <LogOut className="w-4 h-4" />
+          <span className="hidden md:inline">Logout</span>
         </button>
       </div>
     );
