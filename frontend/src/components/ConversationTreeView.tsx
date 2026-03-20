@@ -3,19 +3,28 @@ import {
   MarkerType,
   Position,
   ReactFlow,
+  getSmoothStepPath,
   type Edge,
+  type EdgeProps,
   type Node,
   type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { PenLineIcon } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import type { TreeNode } from "../types";
 
 const NODE_WIDTH = 240;
 const NODE_GAP_X = 60;
 // Q+A両方表示時の最大ノード高さを考慮した余白
 const NODE_GAP_Y = 180;
+
+// 1階層あたりのアニメーション遅延（秒）
+const ANIM_STEP = 0.3;
+
+// 既知ノードIDを追跡（モジュールレベル）
+// 初回表示時のノードはアニメーションしない。追加されたノードのみアニメーション対象
+const knownNodeIds = new Set<string>();
 
 // ノードの幅・位置を計算（ツリーレイアウト）
 // 仮想ノード（＋補足する）を含むIDリストで計算する
@@ -53,23 +62,115 @@ function layoutNodes(
   return positions;
 }
 
+// --- カスタムエッジ ---
+
+function AnimatedEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  style,
+  data,
+  markerEnd,
+}: EdgeProps) {
+  const edgeData = data as Record<string, unknown> | undefined;
+  const isNew = !!edgeData?.isNew;
+  const targetDepth = (edgeData?.targetDepth as number) ?? 1;
+  const isDashed = !!style?.strokeDasharray;
+
+  const [edgePath] = getSmoothStepPath({
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+  });
+
+  // 既存エッジ: 通常表示（アニメーションなし）
+  if (!isNew) {
+    return (
+      <path
+        id={id}
+        className="react-flow__edge-path"
+        d={edgePath}
+        fill="none"
+        stroke={isDashed ? ((style?.stroke as string) ?? "#d1d5db") : "#b1b1b7"}
+        strokeWidth={isDashed ? 1 : 1.5}
+        strokeDasharray={isDashed ? "5 5" : undefined}
+        markerEnd={markerEnd as string}
+      />
+    );
+  }
+
+  // 新規エッジ: アニメーション付き
+  const edgeDelay = Math.max(0, (targetDepth - 1) * ANIM_STEP + ANIM_STEP * 0.4);
+
+  if (isDashed) {
+    return (
+      <path
+        id={id}
+        className="react-flow__edge-path"
+        d={edgePath}
+        fill="none"
+        stroke={(style?.stroke as string) ?? "#d1d5db"}
+        strokeWidth={1}
+        strokeDasharray="5 5"
+        style={{
+          opacity: 0,
+          animation: `edge-fade-in 0.25s ease ${edgeDelay}s forwards`,
+        }}
+      />
+    );
+  }
+
+  return (
+    <path
+      id={id}
+      className="react-flow__edge-path"
+      d={edgePath}
+      fill="none"
+      stroke="#b1b1b7"
+      strokeWidth={1.5}
+      pathLength={1}
+      strokeDasharray={1}
+      strokeDashoffset={1}
+      style={{
+        animation: `edge-draw 0.28s ease ${edgeDelay}s forwards`,
+      }}
+    />
+  );
+}
+
+const edgeTypes = { animated: AnimatedEdge };
+
+// --- カスタムノード ---
+
 type QANodeData = {
   text: string;
   answer: string;
   selected: boolean;
   nodeType: "question" | "visualize" | "free_input";
+  depth: number;
+  isNew: boolean;
 };
 
 function QANode({ data }: NodeProps) {
   const d = data as unknown as QANodeData;
   const answered = d.answer !== "";
   const isFreeInput = d.nodeType === "free_input";
+  const animStyle = d.isNew
+    ? { width: NODE_WIDTH, animationDelay: `${d.depth * ANIM_STEP}s` }
+    : { width: NODE_WIDTH };
 
   if (isFreeInput) {
     return (
       <div
-        style={{ width: NODE_WIDTH }}
-        className="rounded-xl shadow-sm border-2 border-green-300 overflow-hidden"
+        style={animStyle}
+        className={`rounded-xl shadow-sm border-2 border-green-300 overflow-hidden ${d.isNew ? "node-enter" : ""}`}
       >
         <Handle
           type="target"
@@ -100,8 +201,8 @@ function QANode({ data }: NodeProps) {
 
   return (
     <div
-      style={{ width: NODE_WIDTH }}
-      className={`rounded-xl shadow-sm border-2 transition-all overflow-hidden
+      style={animStyle}
+      className={`rounded-xl shadow-sm border-2 transition-all overflow-hidden ${d.isNew ? "node-enter" : ""}
         ${
           answered
             ? "border-green-300 cursor-not-allowed"
@@ -141,14 +242,20 @@ function QANode({ data }: NodeProps) {
 
 type AddSupplementData = {
   parentNodeId: string;
+  depth: number;
+  isNew: boolean;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function AddSupplementNode(_props: NodeProps) {
+function AddSupplementNode({ data }: NodeProps) {
+  const d = data as unknown as AddSupplementData;
+  const animStyle = d.isNew
+    ? { width: NODE_WIDTH, animationDelay: `${d.depth * ANIM_STEP}s` }
+    : { width: NODE_WIDTH };
+
   return (
     <div
-      style={{ width: NODE_WIDTH }}
-      className="rounded-xl border-2 border-dashed border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 cursor-pointer transition-all"
+      style={animStyle}
+      className={`rounded-xl border-2 border-dashed border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 cursor-pointer transition-all ${d.isNew ? "node-enter" : ""}`}
     >
       <Handle
         type="target"
@@ -200,6 +307,8 @@ export function ConversationTreeView({
   const { nodes, edges } = useMemo(() => {
     if (treeNodes.length === 0) return { nodes: [], edges: [] };
 
+    const isInitial = knownNodeIds.size === 0;
+
     // 子ノードマップを構築
     const childrenMap = new Map<string, string[]>();
     const depthMap = new Map<string, number>();
@@ -241,27 +350,52 @@ export function ConversationTreeView({
 
     const positions = layoutNodes(allIds, childrenMap, depthMap);
 
+    // 新規ノードの最小深さ（アニメーション遅延の基準に使用）
+    let minNewDepth = Infinity;
+    if (!isInitial) {
+      for (const n of treeNodes) {
+        if (!knownNodeIds.has(n.id)) {
+          const d = depthMap.get(n.id) ?? 0;
+          if (d < minNewDepth) minNewDepth = d;
+        }
+      }
+      for (const suppId of supplementIds) {
+        if (!knownNodeIds.has(suppId)) {
+          const d = depthMap.get(suppId) ?? 0;
+          if (d < minNewDepth) minNewDepth = d;
+        }
+      }
+    }
+
     // 実ノード
-    const nodes: Node[] = treeNodes.map((n) => ({
-      id: n.id,
-      type: "qa",
-      position: positions.get(n.id) ?? { x: 0, y: 0 },
-      data: {
-        text: n.text,
-        answer: n.answer,
-        selected: n.id === selectedNodeId,
-        nodeType: n.type,
-      },
-    }));
+    const nodes: Node[] = treeNodes.map((n) => {
+      const nodeIsNew = !isInitial && !knownNodeIds.has(n.id);
+      return {
+        id: n.id,
+        type: "qa",
+        position: positions.get(n.id) ?? { x: 0, y: 0 },
+        data: {
+          text: n.text,
+          answer: n.answer,
+          selected: n.id === selectedNodeId,
+          nodeType: n.type,
+          depth: (depthMap.get(n.id) ?? 0) - (nodeIsNew ? minNewDepth : 0),
+          isNew: nodeIsNew,
+        },
+      };
+    });
 
     // 仮想「＋補足する」ノード
     for (const suppId of supplementIds) {
+      const suppIsNew = !isInitial && !knownNodeIds.has(suppId);
       nodes.push({
         id: suppId,
         type: "addSupplement",
         position: positions.get(suppId) ?? { x: 0, y: 0 },
         data: {
           parentNodeId: supplementParents.get(suppId)!,
+          depth: (depthMap.get(suppId) ?? 0) - (suppIsNew ? minNewDepth : 0),
+          isNew: suppIsNew,
         },
       });
     }
@@ -269,34 +403,68 @@ export function ConversationTreeView({
     // エッジ（実ノード間）
     const edges: Edge[] = treeNodes
       .filter((n) => n.parentId !== "")
-      .map((n) => ({
-        id: `e-${n.parentId}-${n.id}`,
-        source: n.parentId,
-        target: n.id,
-        type: "smoothstep",
-        markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
-      }));
+      .map((n) => {
+        const edgeIsNew = !isInitial && !knownNodeIds.has(n.id);
+        return {
+          id: `e-${n.parentId}-${n.id}`,
+          source: n.parentId,
+          target: n.id,
+          type: "animated",
+          data: {
+            targetDepth: (depthMap.get(n.id) ?? 1) - (edgeIsNew ? minNewDepth : 0),
+            isNew: edgeIsNew,
+          },
+          ...(edgeIsNew
+            ? {}
+            : {
+                markerEnd: {
+                  type: MarkerType.ArrowClosed,
+                  width: 20,
+                  height: 20,
+                },
+              }),
+        };
+      });
 
     // エッジ（仮想ノードへ）
     for (const suppId of supplementIds) {
       const parentId = supplementParents.get(suppId)!;
+      const edgeIsNew = !isInitial && !knownNodeIds.has(suppId);
       edges.push({
         id: `e-${parentId}-${suppId}`,
         source: parentId,
         target: suppId,
-        type: "smoothstep",
+        type: "animated",
         style: { strokeDasharray: "5 5", stroke: "#d1d5db" },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          width: 16,
-          height: 16,
-          color: "#d1d5db",
+        data: {
+          targetDepth: (depthMap.get(suppId) ?? 1) - (edgeIsNew ? minNewDepth : 0),
+          isNew: edgeIsNew,
         },
+        ...(edgeIsNew
+          ? {}
+          : {
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+                width: 16,
+                height: 16,
+                color: "#d1d5db",
+              },
+            }),
       });
     }
 
     return { nodes, edges };
   }, [treeNodes, selectedNodeId]);
+
+  // レンダー後に現在のノードIDを記録
+  useEffect(() => {
+    for (const n of treeNodes) {
+      knownNodeIds.add(n.id);
+      if (n.answer !== "" || n.parentId === "") {
+        knownNodeIds.add(`supp-${n.id}`);
+      }
+    }
+  }, [treeNodes]);
 
   if (treeNodes.length === 0) {
     return (
@@ -312,6 +480,7 @@ export function ConversationTreeView({
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         fitViewOptions={{ padding: 0.3 }}
         nodesDraggable={false}
