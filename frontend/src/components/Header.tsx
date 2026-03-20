@@ -25,7 +25,7 @@ export function Header({
   hideToggle,
 }: Props) {
   return (
-    <header className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white shrink-0">
+    <header className="flex items-center gap-2 md:gap-3 px-2 md:px-4 py-2 md:py-3 border-b border-gray-200 bg-white shrink-0">
       <button
         onClick={onMenuClick}
         className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
@@ -33,18 +33,18 @@ export function Header({
       >
         <MenuIcon size={20} />
       </button>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 min-w-0">
         <BotAvatar />
         <span className="font-semibold text-gray-800 text-sm italic">
           Pray Log
         </span>
       </div>
       {title && (
-        <span className="text-sm text-gray-400 truncate ml-2 flex-1">
+        <span className="text-sm text-gray-400 truncate ml-2 flex-1 min-w-0">
           {title}
         </span>
       )}
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-2 shrink-0">
         {!hideToggle && (
           <div className="flex rounded-lg border border-gray-200 overflow-hidden">
             <button
@@ -57,7 +57,7 @@ export function Header({
             </button>
             <button
               onClick={() => onViewModeChange("both")}
-              className={`p-2 transition-colors ${viewMode === "both" ? "bg-blue-50 text-blue-600" : "text-gray-500 hover:bg-gray-50"}`}
+              className={`hidden md:block p-2 transition-colors ${viewMode === "both" ? "bg-blue-50 text-blue-600" : "text-gray-500 hover:bg-gray-50"}`}
               aria-label="両方表示"
               title="チャット＋ツリー"
             >

@@ -33,7 +33,20 @@ export default function App() {
     chatId ?? null
   );
   const [isStreaming, setIsStreaming] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("both");
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    window.innerWidth >= 768 ? "both" : "chat"
+  );
+
+  // スマホ幅で both が選ばれていたら chat にフォールバック
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setViewMode((prev) => (prev === "both" ? "chat" : prev));
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [treeNodes, setTreeNodes] = useState<Record<string, TreeNode[]>>({});
   const [latestQuestions, setLatestQuestions] = useState<TreeNode[]>([]);

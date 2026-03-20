@@ -12,7 +12,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { PenLineIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { TreeNode } from "../types";
 
 const NODE_WIDTH = 240;
@@ -376,6 +376,23 @@ export function ConversationTreeView({
   onFreeInputFromNode,
   freeInputParentNodeId,
 }: Props) {
+  // 会話切り替え時（ノードが空になった時）にリセット
+  const prevRootIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const rootId = treeNodes.length > 0 ? treeNodes[0].id : null;
+    if (prevRootIdRef.current !== null && rootId !== prevRootIdRef.current) {
+      knownNodeIds.clear();
+    }
+    prevRootIdRef.current = rootId;
+  }, [treeNodes]);
+
+  // アンマウント時にクリア
+  useEffect(() => {
+    return () => {
+      knownNodeIds.clear();
+    };
+  }, []);
+
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       if (node.type === "addSupplement") {
