@@ -839,7 +839,12 @@ func (svc *ChatService) History(userID uuid.UUID, conversationIDStr string) (*mo
 	messages := make([]model.HistoryMessage, 0, len(dbMessages))
 	for _, m := range dbMessages {
 		if m.Role == "system" {
-			continue // systemメッセージ（ルートノード用プレースホルダー等）は履歴に含めない
+			// ルートノード用プレースホルダー → 学習開始アナウンスとして変換
+			messages = append(messages, model.HistoryMessage{
+				Role:    "system",
+				Content: fmt.Sprintf("📚 テーマ: %s\n学習を開始します！", m.Content),
+			})
+			continue
 		}
 		hm := model.HistoryMessage{Role: m.Role, Content: m.Content}
 		if m.ArtifactCode != "" {

@@ -197,7 +197,7 @@ export default function App() {
                           artifact?: { title: string; code: string };
                         }) => ({
                           id: nanoid(),
-                          role: m.role as "user" | "assistant",
+                          role: m.role as "user" | "assistant" | "system",
                           content: m.content,
                           artifact: m.artifact,
                         })
@@ -253,7 +253,7 @@ export default function App() {
                       artifact?: { title: string; code: string };
                     }) => ({
                       id: nanoid(),
-                      role: m.role as "user" | "assistant",
+                      role: m.role as "user" | "assistant" | "system",
                       content: m.content,
                       artifact: m.artifact,
                     })
@@ -447,12 +447,13 @@ export default function App() {
                     : {}),
                   messages: isPhaseTransition
                     ? [
-                        ...updatedMessages,
+                        ...updatedMessages.slice(0, -1),
                         {
                           id: nanoid(),
                           role: "system" as const,
                           content: `📚 テーマ: ${doneData.title || s.title}\n学習を開始します！`,
                         },
+                        updatedMessages[updatedMessages.length - 1],
                       ]
                     : updatedMessages,
                 };

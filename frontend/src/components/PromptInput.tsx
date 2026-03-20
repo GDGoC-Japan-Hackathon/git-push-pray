@@ -119,7 +119,7 @@ export function PromptInput({
             disabled={isDisabled}
             rows={1}
             className="flex-1 bg-transparent resize-none outline-none text-sm text-gray-800 placeholder-gray-400 max-h-[200px] leading-relaxed disabled:cursor-not-allowed"
-            style={{ height: "24px" }}
+            style={{ height: "24px", fontSize: "16px", overflowY: "hidden" }}
           />
           {hasMessages && !isInitPhase && (
             <button
