@@ -2,6 +2,84 @@
 
 ハッカソンチーム: Git Push & Pray
 
+## サービス概要
+
+**???** は、AIとの対話を通じて知識を深めるための学習支援チャットアプリです。
+ユーザーがトピックを投げかけると、Gemini が回答しながら関連する問いを生成し、会話ツリーとして可視化します。理解の深まりをビジュアルで確認しながら、能動的に学習を進めることができます。
+TBW more...
+
+## アーキテクチャ
+
+![Architecture](https://github.com/user-attachments/assets/397251e6-7fa4-4af8-a7b4-8953ae1447d7)
+
+### Google Cloud サービス構成
+
+| サービス                      | 用途                                                                        |
+| ----------------------------- | --------------------------------------------------------------------------- |
+| **Cloud Run**                 | フロントエンド (React) とバックエンド (Go) をサーバーレスコンテナとして実行 |
+| **Cloud SQL (PostgreSQL 18)** | ユーザー・会話・メッセージ・会話ツリーの永続化                              |
+| **Vertex AI (Gemini)**        | チャット応答の生成および会話ツリーノードの生成                              |
+| **Artifact Registry**         | CI/CD でビルドした Docker イメージの管理                                    |
+| **Identity Platform**         | Firebase Authentication と連携したユーザー認証・JWT 検証                    |
+| **Secret Manager**            | DB パスワード等の機密情報の管理                                             |
+
+### CI/CD
+
+`main` ブランチへのマージをトリガーに、GitHub Actions が Docker イメージをビルドして Artifact Registry へ push し、Cloud Run へ自動デプロイします。インフラは Terraform で管理され、`terraform/` 以下の変更も GitHub Actions から自動適用されます。
+
+### DB Schema
+
+```mermaid
+erDiagram
+    users {
+        uuid id PK
+        string firebase_uid UK
+        string name
+        string email
+        timestamp created_at
+        timestamp updated_at
+    }
+    conversations {
+        uuid id PK
+        uuid user_id FK
+        string title
+        string phase
+        timestamp created_at
+        timestamp updated_at
+    }
+    messages {
+        int64 id PK
+        uuid conversation_id FK
+        string role
+        text content
+        text artifact_title
+        text artifact_code
+        int token_count
+        timestamp created_at
+    }
+    conversation_tree_nodes {
+        uuid id PK
+        uuid conversation_id FK
+        int64 message_id FK
+        uuid parent_node_id FK
+        text text
+        string node_type
+        text answer
+        int64 answer_message_id FK
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    users ||--o{ conversations : "has"
+    conversations ||--o{ messages : "has"
+    conversations ||--o{ conversation_tree_nodes : "has"
+    messages ||--o{ conversation_tree_nodes : "source (message_id)"
+    conversation_tree_nodes }o--o| conversation_tree_nodes : "parent_node_id"
+    messages ||--o{ conversation_tree_nodes : "answer (answer_message_id)"
+```
+
+---
+
 ## ローカル開発環境の立ち上げ方
 
 このプロジェクトは、フロントエンド (React + Vite) とバックエンド (Go + Vertex AI) で構成されています。

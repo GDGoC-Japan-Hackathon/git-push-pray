@@ -1,0 +1,52 @@
+// Cloud Architecture Diagram
+// git-push-pray - eraser.io compatible
+
+colorMode light
+styleMode shadow
+
+// External Actors
+user [icon: user, color: orange, label: "User"]
+github [icon: github, color: grey, label: "GitHub"]
+githubActions [icon: github-actions, color: grey, label: "GitHub Actions"]
+terraform [icon: terraform, color: purple, label: "Terraform"]
+
+// Google Cloud Infrastructure
+Google Cloud [color: blue, label: "Google Cloud / asia-northeast1"] {
+  firebase [icon: gcp-identity-platform, color: blue, label: "Identity Platform"]
+  artifactRegistry [icon: gcp-container-registry, label: "Artifact Registry"]
+
+  CloudRun [color: blue, label: "Cloud Run"] {
+    frontend [icon: gcp-cloud-run, color: blue, label: "Frontend\n(React + nginx)"]
+
+    BackendContainer [color: blue, label: "Backend Container"] {
+      backend [icon: gcp-cloud-run, color: blue, label: "Backend (Go)"]
+      sqlProxy [icon: gcp-cloud-run, color: blue, label: "Cloud SQL Auth Proxy"]
+    }
+  }
+
+  vertexAI [icon: gcp-vertex-ai, color: blue, label: "Vertex AI\n(Gemini)"]
+  cloudSQL [icon: gcp-cloud-sql, color: blue, label: "Cloud SQL (PostgreSQL 18)"]
+  secretManager [icon: gcp-secret-manager, color: blue, label: "Secret Manager"]
+}
+
+// User flows
+user -> frontend: HTTPS
+frontend -> backend: API Call
+
+// Backend dependencies
+backend -> firebase: Auth / Verify Token
+backend -> vertexAI: LLM / Embeddings
+backend -> sqlProxy: SQL
+sqlProxy -> cloudSQL: Cloud SQL Auth Proxy
+backend -> secretManager: Secrets
+
+// CI/CD flows
+github -> githubActions
+github -> terraform
+githubActions -> artifactRegistry: Build & Push
+artifactRegistry -> frontend: Deploy
+artifactRegistry -> backend: Deploy
+
+// Terraform provisions infra
+terraform -> cloudSQL: Provision
+terraform -> artifactRegistry: Provision
