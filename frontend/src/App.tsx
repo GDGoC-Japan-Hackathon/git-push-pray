@@ -66,6 +66,17 @@ export default function App() {
   const contextParentNode =
     activeTreeNodes.find((n) => n.id === contextParentNodeId) ?? null;
 
+  // ツリーノードが初めて作られたら自動で both 表示に切り替え（PC幅のみ）
+  useEffect(() => {
+    if (
+      activeTreeNodes.length > 0 &&
+      viewMode === "chat" &&
+      window.innerWidth >= 768
+    ) {
+      setViewMode("both");
+    }
+  }, [activeTreeNodes.length, viewMode]);
+
   // URLパラメータとactiveSessionIdを同期
   useEffect(() => {
     if (chatId && chatId !== activeSessionId) {
