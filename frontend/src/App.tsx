@@ -619,11 +619,6 @@ export default function App() {
     setGenerateUI(true);
   }, []);
 
-  // 入力欄のビジュアライズボタン → トグル
-  const handleToggleVisualize = useCallback(() => {
-    setGenerateUI((prev) => !prev);
-  }, []);
-
   // 補足する（自由入力モード）- 現在の質問カードの親ノードIDをコンテキストとして保持
   const handleFreeInput = useCallback(() => {
     const parentId =
@@ -712,8 +707,6 @@ export default function App() {
             <PromptInput
               isStreaming={isStreaming}
               onSubmit={handleSubmit}
-              onVisualize={handleToggleVisualize}
-              isVisualizeActive={generateUI}
               selectedQuestion={
                 isInitPhase ? null : (selectedNode?.text ?? null)
               }
@@ -722,9 +715,6 @@ export default function App() {
               }
               requiresSelection={
                 !isInitPhase && !freeInputMode && activeTreeNodes.length > 0
-              }
-              hasMessages={
-                !isInitPhase && (activeSession?.messages.length ?? 0) > 0
               }
               isInitPhase={isInitPhase}
               freeInputMode={freeInputMode}

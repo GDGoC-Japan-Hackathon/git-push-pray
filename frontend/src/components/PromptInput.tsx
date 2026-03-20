@@ -1,15 +1,12 @@
-import { SendIcon, SparklesIcon } from "lucide-react";
+import { SendIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 interface Props {
   isStreaming: boolean;
   onSubmit: (text: string) => void;
-  onVisualize?: () => void;
-  isVisualizeActive?: boolean;
   selectedQuestion?: string | null; // 会話ツリーで選択中の質問
   selectedNodeType?: "question" | "visualize" | "free_input" | null;
   requiresSelection?: boolean; // 選択必須モード（会話ツリー表示中）
-  hasMessages?: boolean; // メッセージがあるか（ビジュアライズボタン表示用）
   isInitPhase?: boolean; // 初期化フェーズ中か
   freeInputMode?: boolean; // 自由入力モード
   freeInputContext?: string | null; // 補足対象のノードテキスト
@@ -19,12 +16,9 @@ interface Props {
 export function PromptInput({
   isStreaming,
   onSubmit,
-  onVisualize,
-  isVisualizeActive,
   selectedQuestion,
   selectedNodeType,
   requiresSelection,
-  hasMessages,
   isInitPhase,
   freeInputMode,
   freeInputContext,
@@ -121,25 +115,6 @@ export function PromptInput({
             className="flex-1 bg-transparent resize-none outline-none text-sm text-gray-800 placeholder-gray-400 max-h-[200px] leading-relaxed disabled:cursor-not-allowed"
             style={{ height: "24px" }}
           />
-          {hasMessages && !isInitPhase && (
-            <button
-              onClick={onVisualize}
-              disabled={isDisabled}
-              className={`
-                flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all shrink-0
-                ${
-                  isDisabled
-                    ? "text-gray-300 cursor-not-allowed"
-                    : isVisualizeActive
-                      ? "bg-purple-100 text-purple-700 ring-1 ring-purple-300"
-                      : "text-purple-500 hover:bg-purple-50 hover:text-purple-600"
-                }
-              `}
-            >
-              <SparklesIcon size={14} />
-              ビジュアライズ
-            </button>
-          )}
           <SubmitButton onClick={handleSubmit} disabled={!canSubmit} />
         </div>
         <p className="text-center text-xs text-gray-300 mt-2">
