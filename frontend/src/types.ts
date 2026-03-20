@@ -5,7 +5,7 @@ export interface Artifact {
 
 export interface ChatMessage {
   id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
   artifact?: Artifact;
   isStreaming?: boolean; // ストリーミング中
@@ -18,6 +18,7 @@ export interface ChatSession {
   lastMessage: string;
   timestamp: string;
   messages: ChatMessage[];
+  phase: "init" | "teaching";
 }
 
 export interface TreeNode {
@@ -25,5 +26,5 @@ export interface TreeNode {
   parentId: string; // '' = ルート
   text: string;
   answer: string; // '' = 未回答
-  type: "question" | "visualize";
+  type: "question" | "visualize" | "free_input";
 }

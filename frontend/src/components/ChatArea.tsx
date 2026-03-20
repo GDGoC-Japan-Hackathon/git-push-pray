@@ -1,10 +1,10 @@
+import { PenLineIcon, SparklesIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { SparklesIcon } from "lucide-react";
-import type { ChatSession, TreeNode } from "../types";
 import { SUGGESTIONS } from "../constants";
+import type { ChatSession, TreeNode } from "../types";
+import { BotAvatar } from "./BotAvatar";
 import { Message } from "./Message";
 import { TypingIndicator } from "./TypingIndicator";
-import { BotAvatar } from "./BotAvatar";
 
 interface Props {
   session: ChatSession | null;
@@ -13,6 +13,7 @@ interface Props {
   latestQuestions?: TreeNode[];
   onQuestionCardSelect?: (id: string) => void;
   onVisualizeClick?: (id: string) => void;
+  onFreeInput?: () => void;
 }
 
 export function ChatArea({
@@ -22,6 +23,7 @@ export function ChatArea({
   latestQuestions = [],
   onQuestionCardSelect,
   onVisualizeClick,
+  onFreeInput,
 }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -77,6 +79,16 @@ export function ChatArea({
                   </button>
                 )
               )}
+              <button
+                onClick={() => onFreeInput?.()}
+                className="flex-1 min-w-[140px] max-w-xs text-left px-4 py-3 rounded-xl border-2 border-dashed border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 text-sm text-gray-500 leading-snug transition-all"
+              >
+                <span className="text-xs font-semibold text-gray-400 flex items-center gap-1 mb-0.5">
+                  <PenLineIcon size={12} />
+                  自由回答
+                </span>
+                自由に回答する
+              </button>
             </div>
           </div>
         )}

@@ -13,6 +13,7 @@ interface Props {
 
 export function Message({ message }: Props) {
   const isUser = message.role === "user";
+  const isSystem = message.role === "system";
   const codeEndRef = useRef<HTMLPreElement>(null);
 
   // ストリーミング中のコードを自動スクロール
@@ -21,6 +22,20 @@ export function Message({ message }: Props) {
       codeEndRef.current.scrollTop = codeEndRef.current.scrollHeight;
     }
   }, [message.streamingCode]);
+
+  if (isSystem) {
+    return (
+      <div className="my-6">
+        <div className="border-t border-blue-200" />
+        <div className="mx-auto my-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
+          <p className="text-sm font-medium text-blue-800 whitespace-pre-line">
+            {message.content}
+          </p>
+        </div>
+        <div className="border-t border-blue-200" />
+      </div>
+    );
+  }
 
   return (
     <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>

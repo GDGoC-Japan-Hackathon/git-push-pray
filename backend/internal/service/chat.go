@@ -73,6 +73,24 @@ const artifactInstruction = `
 ・追加ライブラリが必要な場合はCDN（Chart.js, D3.js, Three.js等）を<script>タグで読み込んでよい。
 ・アニメーションやトランジションを活用して、洗練されたインタラクティブな体験を作ること。`
 
+const initSystemInstruction = `あなたはユーザーが学びたいテーマを具体化するためのアシスタントです。
+ユーザーが入力したテーマについて、2〜3回の短い対話で学習範囲を絞り込んでください。
+
+【ルール】
+・親しみやすい敬語で対話してください。
+・ユーザーの入力を受けて、具体的に何を学びたいのか明確にする質問を1つだけしてください。
+・質問は短く（1〜2文）。選択肢を提示すると親切です。
+・テーマが十分に具体的になったと判断したら、theme_decidedをtrueにし、decided_themeに最終テーマ（20字以内）を入れてください。
+・最終テーマ決定時のreplyは「〇〇というテーマで学習を始めましょう！」のような確認メッセージにしてください。
+・通常2〜3往復で決定してください。ユーザーが最初から具体的なら1往復でもOKです。`
+
+// initReply は初期化フェーズでGeminiから返ってくるJSON
+type initReply struct {
+	Reply        string `json:"reply"`
+	ThemeDecided bool   `json:"theme_decided"`
+	DecidedTheme string `json:"decided_theme"`
+}
+
 // geminiReply はGeminiから返ってくる構造化JSON
 type geminiReply struct {
 	Reply         string `json:"reply"`
@@ -105,7 +123,7 @@ func EnsureUser(firebaseUID, name, email string) (*model.User, error) {
 	return repository.FindOrCreateUser(firebaseUID, name, email)
 }
 
-func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conversationIDStr, message, parentNodeID, answeringQuestion string, generateUI bool) (<-chan StreamEvent, error) {
+func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conversationIDStr, message, parentNodeID, answeringQuestion string, generateUI, isSupplement bool, contextParentNodeID string) (<-chan StreamEvent, error) {
 	var conv *model.Conversation
 	isNewConversation := false
 
@@ -131,6 +149,318 @@ func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conver
 		}
 	}
 
+	// 既存会話でPhaseが空（マイグレーション前のデータ）→ ツリーノードがあれば"teaching"として扱う
+	phase := conv.Phase
+	if phase == "" || phase == "init" {
+		nodes, _ := repository.GetTreeNodesByConversationID(conv.ID)
+		if len(nodes) > 0 {
+			phase = "teaching"
+		} else if phase == "" {
+			phase = "init"
+		}
+	}
+
+	// initフェーズの場合は初期化フロー
+	if phase == "init" {
+		return svc.chatStreamInit(ctx, conv, user, message, isNewConversation)
+	}
+
+	// teachingフェーズ: 既存の教育フロー
+	return svc.chatStreamTeaching(ctx, conv, user, message, parentNodeID, answeringQuestion, generateUI, isSupplement, contextParentNodeID)
+}
+
+// chatStreamInit は初期化フェーズ（テーマ絞り込み）のストリーム処理
+func (svc *ChatService) chatStreamInit(ctx context.Context, conv *model.Conversation, user *model.User, message string, isNewConversation bool) (<-chan StreamEvent, error) {
+	dbMessages, err := repository.GetMessagesByConversationID(conv.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	var contents []*genai.Content
+	for _, m := range dbMessages {
+		if m.Role == "system" {
+			continue // systemメッセージはGeminiに渡さない
+		}
+		role := m.Role
+		if role == "assistant" {
+			role = "model"
+		}
+		contents = append(contents, &genai.Content{
+			Role:  role,
+			Parts: []*genai.Part{genai.NewPartFromText(m.Content)},
+		})
+	}
+	contents = append(contents, &genai.Content{
+		Role:  "user",
+		Parts: []*genai.Part{genai.NewPartFromText(message)},
+	})
+
+	initSchema := &genai.Schema{
+		Type: genai.TypeObject,
+		Properties: map[string]*genai.Schema{
+			"reply": {
+				Type:        genai.TypeString,
+				Description: "対話的な返答",
+			},
+			"theme_decided": {
+				Type:        genai.TypeBoolean,
+				Description: "テーマが十分に具体的になったらtrue",
+			},
+			"decided_theme": {
+				Type:        genai.TypeString,
+				Description: "最終テーマ（20字以内）。theme_decidedがfalseの場合は空文字。",
+			},
+		},
+		Required: []string{"reply", "theme_decided", "decided_theme"},
+	}
+
+	config := &genai.GenerateContentConfig{
+		SystemInstruction: genai.NewContentFromText(initSystemInstruction, "user"),
+		ResponseMIMEType:  "application/json",
+		ResponseSchema:    initSchema,
+		SafetySettings: []*genai.SafetySetting{
+			{Category: genai.HarmCategoryHarassment, Threshold: genai.HarmBlockThresholdBlockOnlyHigh},
+			{Category: genai.HarmCategoryHateSpeech, Threshold: genai.HarmBlockThresholdBlockOnlyHigh},
+			{Category: genai.HarmCategorySexuallyExplicit, Threshold: genai.HarmBlockThresholdBlockOnlyHigh},
+			{Category: genai.HarmCategoryDangerousContent, Threshold: genai.HarmBlockThresholdBlockOnlyHigh},
+		},
+	}
+
+	// DBに保存（user message）
+	if _, err := repository.CreateMessage(conv.ID, "user", message, 0, "", ""); err != nil {
+		return nil, err
+	}
+
+	ch := make(chan StreamEvent, 16)
+
+	go func() {
+		defer close(ch)
+
+		var accumulated strings.Builder
+		chunkCount := 0
+
+		for resp, err := range svc.client.Models.GenerateContentStream(ctx, "gemini-2.5-flash", contents, config) {
+			if err != nil {
+				log.Printf("Init stream error: %v", err)
+				errJSON, _ := json.Marshal(map[string]string{"error": err.Error()})
+				ch <- StreamEvent{Type: "error", Data: string(errJSON)}
+				return
+			}
+			chunk := resp.Text()
+			accumulated.WriteString(chunk)
+			chunkCount++
+
+			chunkData, _ := json.Marshal(map[string]string{"text": accumulated.String()})
+			ch <- StreamEvent{Type: "chunk", Data: string(chunkData)}
+		}
+
+		log.Printf("Init stream completed: %d chunks, %d bytes", chunkCount, accumulated.Len())
+
+		fullText := accumulated.String()
+		var parsed initReply
+		if err := json.Unmarshal([]byte(fullText), &parsed); err != nil {
+			log.Printf("Init response parse error: %v, raw: %s", err, fullText)
+			parsed.Reply = fullText
+		}
+
+		// AI応答をDBに保存
+		if _, err := repository.CreateMessage(conv.ID, "assistant", parsed.Reply, 0, "", ""); err != nil {
+			log.Printf("failed to save init assistant message: %v", err)
+			return
+		}
+
+		_ = repository.TouchConversation(conv.ID)
+
+		if !parsed.ThemeDecided {
+			// テーマ未決定: initフェーズ継続
+			doneResp := &model.ChatResponse{
+				ConversationID: conv.ID.String(),
+				Reply:          parsed.Reply,
+				Questions:      []model.QuestionNode{},
+				Phase:          "init",
+			}
+			doneData, _ := json.Marshal(doneResp)
+			ch <- StreamEvent{Type: "done", Data: string(doneData)}
+			return
+		}
+
+		// テーマ決定: フェーズ遷移処理
+		decidedTheme := parsed.DecidedTheme
+		if decidedTheme == "" {
+			decidedTheme = message
+		}
+
+		// フェーズとタイトルを更新
+		if err := repository.UpdateConversationPhaseAndTitle(conv.ID, "teaching", decidedTheme); err != nil {
+			log.Printf("failed to update conversation phase: %v", err)
+		}
+
+		// ルートツリーノードを作成（ユーザー発話ではないため role は system とする）
+		rootMsgPlaceholder, err := repository.CreateMessage(conv.ID, "system", decidedTheme, 0, "", "")
+		if err != nil {
+			log.Printf("failed to create root message placeholder: %v", err)
+			// エラーでもdoneは返す
+			doneResp := &model.ChatResponse{
+				ConversationID: conv.ID.String(),
+				Reply:          parsed.Reply,
+				Questions:      []model.QuestionNode{},
+				Phase:          "teaching",
+			}
+			doneData, _ := json.Marshal(doneResp)
+			ch <- StreamEvent{Type: "done", Data: string(doneData)}
+			return
+		}
+
+		rootNode := &model.ConversationTreeNode{
+			ID:             uuid.New(),
+			ConversationID: conv.ID,
+			MessageID:      rootMsgPlaceholder.ID,
+			ParentNodeID:   nil,
+			Text:           decidedTheme,
+			Answer:         "",
+		}
+		if err := repository.CreateTreeNode(rootNode); err != nil {
+			log.Printf("failed to create root tree node: %v", err)
+		}
+
+		// 2回目のAI呼び出し: 教育用プロンプトで初期質問を生成
+		teachingContents := []*genai.Content{
+			{
+				Role:  "user",
+				Parts: []*genai.Part{genai.NewPartFromText(fmt.Sprintf("[学習テーマ: %s]\n\nこのテーマについて教えてください！", decidedTheme))},
+			},
+		}
+
+		teachingSchema := &genai.Schema{
+			Type: genai.TypeObject,
+			Properties: map[string]*genai.Schema{
+				"reply": {
+					Type:        genai.TypeString,
+					Description: "会話的な返答（1〜3文）",
+				},
+				"answer_summary": {
+					Type:        genai.TypeString,
+					Description: "ユーザーの説明の要約（15字以内）。最初のメッセージは空文字。",
+				},
+				"questions": {
+					Type: genai.TypeArray,
+					Items: &genai.Schema{
+						Type: genai.TypeObject,
+						Properties: map[string]*genai.Schema{
+							"summary": {
+								Type:        genai.TypeString,
+								Description: "質問の要約（15字以内）",
+							},
+							"type": {
+								Type:        genai.TypeString,
+								Description: "question: 通常の質問, visualize: ビジュアライズの提案",
+								Enum:        []string{"question", "visualize"},
+							},
+						},
+						Required: []string{"summary", "type"},
+					},
+				},
+			},
+			Required: []string{"reply", "answer_summary", "questions"},
+		}
+
+		teachingConfig := &genai.GenerateContentConfig{
+			SystemInstruction: genai.NewContentFromText(systemInstruction, "user"),
+			ResponseMIMEType:  "application/json",
+			ResponseSchema:    teachingSchema,
+			SafetySettings: []*genai.SafetySetting{
+				{Category: genai.HarmCategoryHarassment, Threshold: genai.HarmBlockThresholdBlockOnlyHigh},
+				{Category: genai.HarmCategoryHateSpeech, Threshold: genai.HarmBlockThresholdBlockOnlyHigh},
+				{Category: genai.HarmCategorySexuallyExplicit, Threshold: genai.HarmBlockThresholdBlockOnlyHigh},
+				{Category: genai.HarmCategoryDangerousContent, Threshold: genai.HarmBlockThresholdBlockOnlyHigh},
+			},
+		}
+
+		teachingResp, err := svc.client.Models.GenerateContent(ctx, "gemini-2.5-flash", teachingContents, teachingConfig)
+		if err != nil {
+			log.Printf("Teaching initial question generation error: %v", err)
+			// エラーでもフェーズ遷移済みのdoneを返す
+			doneResp := &model.ChatResponse{
+				ConversationID: conv.ID.String(),
+				Reply:          parsed.Reply,
+				Questions:      []model.QuestionNode{},
+				Phase:          "teaching",
+			}
+			doneData, _ := json.Marshal(doneResp)
+			ch <- StreamEvent{Type: "done", Data: string(doneData)}
+			return
+		}
+
+		var teachingParsed geminiReply
+		if err := json.Unmarshal([]byte(teachingResp.Text()), &teachingParsed); err != nil {
+			log.Printf("Teaching response parse error: %v", err)
+		}
+
+		// 教育AIの応答をDBに保存
+		aiMsg, err := repository.CreateMessage(conv.ID, "assistant", teachingParsed.Reply, 0, "", "")
+		if err != nil {
+			log.Printf("failed to save teaching assistant message: %v", err)
+			doneResp := &model.ChatResponse{
+				ConversationID: conv.ID.String(),
+				Reply:          parsed.Reply,
+				Questions:      []model.QuestionNode{},
+				Phase:          "teaching",
+			}
+			doneData, _ := json.Marshal(doneResp)
+			ch <- StreamEvent{Type: "done", Data: string(doneData)}
+			return
+		}
+
+		// 生成された質問をルートノードの子ノードとして保存
+		newNodes := make([]model.QuestionNode, 0, len(teachingParsed.Questions))
+		for _, q := range teachingParsed.Questions {
+			pID := rootNode.ID
+			nodeType := q.Type
+			if nodeType == "" {
+				nodeType = "question"
+			}
+			node := &model.ConversationTreeNode{
+				ID:             uuid.New(),
+				ConversationID: conv.ID,
+				MessageID:      aiMsg.ID,
+				ParentNodeID:   &pID,
+				Text:           q.Summary,
+				NodeType:       nodeType,
+				Answer:         "",
+			}
+			if err := repository.CreateTreeNode(node); err != nil {
+				log.Printf("failed to create initial question node: %v", err)
+				continue
+			}
+			newNodes = append(newNodes, model.QuestionNode{
+				ID:      node.ID.String(),
+				Summary: node.Text,
+				Type:    nodeType,
+			})
+		}
+
+		// parsed.Reply（init AI応答）とteachingParsed.Reply（教育AI初回応答）を結合して返す
+		combinedReply := parsed.Reply
+		if teachingParsed.Reply != "" {
+			combinedReply += "\n\n" + teachingParsed.Reply
+		}
+		doneResp := &model.ChatResponse{
+			ConversationID: conv.ID.String(),
+			Reply:          combinedReply,
+			AnswerSummary:  "",
+			Questions:      newNodes,
+			Phase:          "teaching",
+			Title:          decidedTheme,
+		}
+		doneData, _ := json.Marshal(doneResp)
+		ch <- StreamEvent{Type: "done", Data: string(doneData)}
+	}()
+
+	return ch, nil
+}
+
+// chatStreamTeaching は教育フェーズのストリーム処理（既存ロジック）
+func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conversation, user *model.User, message, parentNodeID, answeringQuestion string, generateUI, isSupplement bool, contextParentNodeID string) (<-chan StreamEvent, error) {
 	// 回答済みチェック（ノードが同じ会話に属するかも検証）
 	if parentNodeID != "" {
 		pID, err := uuid.Parse(parentNodeID)
@@ -169,6 +499,9 @@ func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conver
 
 	var contents []*genai.Content
 	for i, m := range dbMessages {
+		if m.Role == "system" {
+			continue // systemメッセージはGeminiに渡さない
+		}
 		role := m.Role
 		if role == "assistant" {
 			role = "model"
@@ -186,7 +519,26 @@ func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conver
 
 	// どの質問に回答しているかをメッセージに付加
 	userMessage := message
-	if answeringQuestion != "" {
+	if isSupplement {
+		// 補足モード: コンテキスト親ノードの情報を付加
+		if contextParentNodeID != "" {
+			cpID, err := uuid.Parse(contextParentNodeID)
+			if err == nil {
+				contextNode, err := repository.GetTreeNodeByID(cpID)
+				if err == nil {
+					if contextNode.ConversationID != conv.ID {
+						log.Printf("invalid context_parent_node_id: node %s does not belong to conversation %s", contextParentNodeID, conv.ID)
+						// 不正なノードは無視して通常の補足として扱う
+						userMessage = fmt.Sprintf("[補足説明です]\n\n%s", message)
+					} else {
+						userMessage = fmt.Sprintf("[補足説明です。現在の話題: %s]\n\n%s", contextNode.Text, message)
+					}
+				}
+			}
+		} else {
+			userMessage = fmt.Sprintf("[補足説明です]\n\n%s", message)
+		}
+	} else if answeringQuestion != "" {
 		userMessage = fmt.Sprintf("[回答している質問: %s]\n\n%s", answeringQuestion, message)
 	}
 	contents = append(contents, &genai.Content{
@@ -303,28 +655,48 @@ func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conver
 
 		var activeParentNodeID = parentNodeID
 
-		// 初回の場合は、まず「テーマ」をルートノードとして作成する
-		if isNewConversation {
-			rootNode := &model.ConversationTreeNode{
-				ID:             uuid.New(),
-				ConversationID: conv.ID,
-				MessageID:      userMsg.ID,
-				ParentNodeID:   nil,
-				Text:           message,
-				Answer:         "",
-			}
-			if err := repository.CreateTreeNode(rootNode); err != nil {
-				log.Printf("failed to create root tree node: %v", err)
-			} else {
-				activeParentNodeID = rootNode.ID.String()
-			}
-		} else if parentNodeID != "" {
+		if parentNodeID != "" {
 			// 親ノードの answer を更新
 			pID, err := uuid.Parse(parentNodeID)
 			if err == nil {
 				if err := repository.UpdateTreeNodeAnswer(pID, conv.ID, parsed.AnswerSummary, userMsg.ID); err != nil {
 					log.Printf("failed to update tree node answer (nodeID=%s): %v", pID, err)
 				}
+			}
+		}
+
+		// 補足モード: free_inputノードを作成し、その子として新しい質問を生成
+		// ユーザーが明示的にノードを選んでいるので、常にそのノードの子にする
+		if isSupplement && contextParentNodeID != "" {
+			var freeInputParentID *uuid.UUID
+			cpID, err := uuid.Parse(contextParentNodeID)
+			if err == nil {
+				freeInputParentID = &cpID
+			}
+
+			freeInputAnswer := parsed.AnswerSummary
+			if freeInputAnswer == "" {
+				// AIが要約を返さなかった場合、メッセージの先頭を使用
+				freeInputAnswer = message
+				if len([]rune(freeInputAnswer)) > 30 {
+					freeInputAnswer = string([]rune(freeInputAnswer)[:30]) + "…"
+				}
+			}
+			freeInputNode := &model.ConversationTreeNode{
+				ID:             uuid.New(),
+				ConversationID: conv.ID,
+				MessageID:      userMsg.ID,
+				ParentNodeID:   freeInputParentID,
+				Text:           "自由回答",
+				NodeType:       "free_input",
+				Answer:         freeInputAnswer,
+				AnswerMessageID: func() *int64 { v := userMsg.ID; return &v }(),
+			}
+			if err := repository.CreateTreeNode(freeInputNode); err != nil {
+				log.Printf("failed to create free_input tree node: %v", err)
+			} else {
+				// 新しい質問はこのfree_inputノードの子にする
+				activeParentNodeID = freeInputNode.ID.String()
 			}
 		}
 
@@ -393,6 +765,7 @@ func (svc *ChatService) ChatStream(ctx context.Context, user *model.User, conver
 			AnswerSummary:  parsed.AnswerSummary,
 			Questions:      newNodes,
 			Artifact:       artifact,
+			Phase:          "teaching",
 		}
 		doneData, _ := json.Marshal(doneResp)
 		ch <- StreamEvent{Type: "done", Data: string(doneData)}
@@ -465,13 +838,27 @@ func (svc *ChatService) History(userID uuid.UUID, conversationIDStr string) (*mo
 
 	messages := make([]model.HistoryMessage, 0, len(dbMessages))
 	for _, m := range dbMessages {
+		if m.Role == "system" {
+			continue // systemメッセージ（ルートノード用プレースホルダー等）は履歴に含めない
+		}
 		hm := model.HistoryMessage{Role: m.Role, Content: m.Content}
 		if m.ArtifactCode != "" {
 			hm.Artifact = &model.Artifact{Title: m.ArtifactTitle, Code: m.ArtifactCode}
 		}
 		messages = append(messages, hm)
 	}
-	return &model.HistoryResponse{Messages: messages}, nil
+	// Phaseを決定: 空/initでもツリーノードがあればteaching
+	histPhase := conv.Phase
+	if histPhase == "" || histPhase == "init" {
+		nodes, _ := repository.GetTreeNodesByConversationID(conv.ID)
+		if len(nodes) > 0 {
+			histPhase = "teaching"
+		} else if histPhase == "" {
+			histPhase = "init"
+		}
+	}
+
+	return &model.HistoryResponse{Messages: messages, Phase: histPhase}, nil
 }
 
 func (svc *ChatService) Sessions(userID uuid.UUID) (*model.SessionsResponse, error) {
@@ -489,11 +876,17 @@ func (svc *ChatService) Sessions(userID uuid.UUID) (*model.SessionsResponse, err
 				lastMessage = string([]rune(lastMessage)[:60])
 			}
 		}
+		// Phaseを決定: 空の場合はteachingとして扱う（既存データ互換）
+		sessionPhase := c.Phase
+		if sessionPhase == "" {
+			sessionPhase = "teaching"
+		}
 		sessions = append(sessions, model.SessionMeta{
 			ConversationID: c.ID.String(),
 			Title:          c.Title,
 			LastMessage:    lastMessage,
 			UpdatedAt:      c.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			Phase:          sessionPhase,
 		})
 	}
 	return &model.SessionsResponse{Sessions: sessions}, nil

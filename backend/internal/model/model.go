@@ -1,12 +1,14 @@
 package model
 
 type ChatRequest struct {
-	UserID            string `json:"user_id"`
-	ConversationID    string `json:"conversation_id"`
-	Message           string `json:"message"`
-	ParentNodeID      string `json:"parent_node_id"`
-	AnsweringQuestion string `json:"answering_question"`
-	GenerateUI        bool   `json:"generate_ui"`
+	UserID              string `json:"user_id"`
+	ConversationID      string `json:"conversation_id"`
+	Message             string `json:"message"`
+	ParentNodeID        string `json:"parent_node_id"`
+	AnsweringQuestion   string `json:"answering_question"`
+	GenerateUI          bool   `json:"generate_ui"`
+	IsSupplement        bool   `json:"is_supplement"`
+	ContextParentNodeID string `json:"context_parent_node_id"`
 }
 
 type QuestionNode struct {
@@ -26,6 +28,8 @@ type ChatResponse struct {
 	AnswerSummary  string         `json:"answer_summary"`
 	Questions      []QuestionNode `json:"questions"`
 	Artifact       *Artifact      `json:"artifact,omitempty"`
+	Phase          string         `json:"phase"`
+	Title          string         `json:"title,omitempty"`
 }
 
 type HistoryMessage struct {
@@ -36,6 +40,7 @@ type HistoryMessage struct {
 
 type HistoryResponse struct {
 	Messages []HistoryMessage `json:"messages"`
+	Phase    string           `json:"phase"`
 }
 
 type SessionMeta struct {
@@ -43,6 +48,7 @@ type SessionMeta struct {
 	Title          string `json:"title"`
 	LastMessage    string `json:"last_message"`
 	UpdatedAt      string `json:"updated_at"`
+	Phase          string `json:"phase"`
 }
 
 type SessionsResponse struct {

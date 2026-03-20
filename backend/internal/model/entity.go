@@ -19,6 +19,7 @@ type Conversation struct {
 	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	UserID    uuid.UUID `gorm:"type:uuid;index;not null" json:"user_id"`
 	Title     string    `gorm:"size:255" json:"title"`
+	Phase     string    `gorm:"size:20;default:'init'" json:"phase"` // "init" or "teaching"
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
