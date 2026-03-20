@@ -27,7 +27,10 @@ export function PromptInput({
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const isDisabled = isStreaming || (requiresSelection && !selectedQuestion);
+  const MAX_LENGTH = 500;
+  const isOverLimit = [...input].length > MAX_LENGTH;
+  const isDisabled =
+    isStreaming || (requiresSelection && !selectedQuestion) || isOverLimit;
 
   // AIの応答完了時にテキストエリアにフォーカス
   const wasStreaming = useRef(false);
@@ -117,9 +120,18 @@ export function PromptInput({
           />
           <SubmitButton onClick={handleSubmit} disabled={!canSubmit} />
         </div>
-        <p className="text-center text-xs text-gray-300 mt-2">
-          AIは誤情報を生成することがあります。重要な情報は確認してください。
-        </p>
+        <div className="flex justify-between items-center mt-2">
+          <p className="text-xs text-gray-300">
+            AIは誤情報を生成することがあります。重要な情報は確認してください。
+          </p>
+          {input.length > 0 && (
+            <p
+              className={`text-xs shrink-0 ml-2 ${isOverLimit ? "text-red-500 font-medium" : [...input].length > MAX_LENGTH * 0.8 ? "text-orange-400" : "text-gray-300"}`}
+            >
+              {[...input].length}/{MAX_LENGTH}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
