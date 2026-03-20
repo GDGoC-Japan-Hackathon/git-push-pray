@@ -547,6 +547,33 @@ export default function App() {
     ]
   );
 
+  const handleDeleteSession = useCallback(
+    async (id: string) => {
+      if (!user) return;
+      try {
+        const token = await user.getIdToken();
+        const resp = await fetch(
+          `${apiBase}/api/conversation?conversation_id=${encodeURIComponent(id)}`,
+          {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (!resp.ok) throw new Error(`Delete failed: ${resp.status}`);
+        setSessions((prev) => prev.filter((s) => s.id !== id));
+        if (activeSessionId === id) {
+          setActiveSessionId(null);
+          setSelectedNodeId(null);
+          setLatestQuestions([]);
+          navigate("/");
+        }
+      } catch (err) {
+        console.error("Failed to delete session:", err);
+      }
+    },
+    [user, apiBase, activeSessionId, navigate]
+  );
+
   const handleNodeSelect = useCallback((id: string) => {
     setSelectedNodeId((prev) => (prev === id ? null : id)); // 再クリックで選択解除
     setLatestQuestions([]);
@@ -602,6 +629,7 @@ export default function App() {
         onClose={() => setSidebarOpen(false)}
         onNewChat={handleNewChat}
         onSelectSession={handleSelectSession}
+        onDeleteSession={handleDeleteSession}
       />
 
       <div className="flex flex-col flex-1 min-w-0">

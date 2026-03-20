@@ -5,6 +5,7 @@ import (
 
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/model"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 func CreateConversation(userID uuid.UUID, title string) (*model.Conversation, error) {
@@ -41,4 +42,16 @@ func ListConversationsByUserID(userID uuid.UUID) ([]model.Conversation, error) {
 		return nil, err
 	}
 	return convs, nil
+}
+
+func DeleteConversation(id uuid.UUID) error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("conversation_id = ?", id).Delete(&model.ConversationTreeNode{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("conversation_id = ?", id).Delete(&model.Message{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&model.Conversation{}, id).Error
+	})
 }

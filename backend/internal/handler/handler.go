@@ -9,6 +9,7 @@ import (
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/middleware"
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/model"
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/service"
+	"github.com/google/uuid"
 )
 
 type Handler struct {
@@ -157,6 +158,44 @@ func (h *Handler) History(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+func (h *Handler) DeleteConversation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "DELETE" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, err := h.ensureUser(r)
+	if err != nil {
+		log.Printf("Failed to ensure user: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	conversationID := r.URL.Query().Get("conversation_id")
+	if conversationID == "" {
+		http.Error(w, "conversation_id is required", http.StatusBadRequest)
+		return
+	}
+
+	convID, err := uuid.Parse(conversationID)
+	if err != nil {
+		http.Error(w, "invalid conversation_id", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.DeleteConversation(user.ID, convID); err != nil {
+		log.Printf("DeleteConversation error: %v", err)
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) Sessions(w http.ResponseWriter, r *http.Request) {
