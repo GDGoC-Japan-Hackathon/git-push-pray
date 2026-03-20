@@ -1,4 +1,9 @@
-import { Sandpack } from "@codesandbox/sandpack-react";
+import {
+  SandpackProvider,
+  SandpackLayout,
+  SandpackPreview,
+  SandpackCodeEditor,
+} from "@codesandbox/sandpack-react";
 import { Check, Code, Copy, Eye, Maximize2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -16,29 +21,41 @@ interface Props {
   artifact: Artifact;
 }
 
-function SandpackArtifact({
+function SandpackContent({
   code,
-  style,
-  className,
+  showCode,
+  height,
 }: {
   code: string;
-  style?: React.CSSProperties;
-  className?: string;
+  showCode: boolean;
+  height: number | string;
 }) {
+  const cssHeight = typeof height === "number" ? `${height}px` : height;
   return (
-    <div style={style} className={className}>
-      <Sandpack
-        template="react"
-        files={{ "/App.js": code }}
-        customSetup={{ dependencies: SANDPACK_DEPENDENCIES }}
-        options={{
-          externalResources: SANDPACK_EXTERNAL_RESOURCES,
-          showNavigator: false,
-          showLineNumbers: false,
-          showInlineErrors: true,
-        }}
-      />
-    </div>
+    <SandpackProvider
+      template="react"
+      files={{ "/App.js": code }}
+      customSetup={{ dependencies: SANDPACK_DEPENDENCIES }}
+      options={{ externalResources: SANDPACK_EXTERNAL_RESOURCES }}
+    >
+      <SandpackLayout
+        style={{ "--sp-layout-height": cssHeight } as React.CSSProperties}
+      >
+        {showCode ? (
+          <SandpackCodeEditor
+            showLineNumbers
+            readOnly
+            style={{ height: cssHeight }}
+          />
+        ) : (
+          <SandpackPreview
+            showOpenInCodeSandbox={false}
+            showRefreshButton={false}
+            style={{ height: cssHeight }}
+          />
+        )}
+      </SandpackLayout>
+    </SandpackProvider>
   );
 }
 
@@ -107,16 +124,7 @@ export function ArtifactRenderer({ artifact }: Props) {
       </div>
 
       {/* Content */}
-      {showCode ? (
-        <pre className="p-3 text-xs overflow-auto bg-gray-900 text-gray-100 max-h-[500px]">
-          <code>{artifact.code}</code>
-        </pre>
-      ) : (
-        <SandpackArtifact
-          code={artifact.code}
-          style={{ height: 400, border: "none" }}
-        />
-      )}
+      <SandpackContent code={artifact.code} showCode={showCode} height={400} />
 
       {/* Fullscreen Modal */}
       {isFullscreen &&
@@ -143,9 +151,10 @@ export function ArtifactRenderer({ artifact }: Props) {
                 </button>
               </div>
               {/* Modal Content */}
-              <SandpackArtifact
+              <SandpackContent
                 code={artifact.code}
-                className="flex-1 w-full"
+                showCode={showCode}
+                height="calc(100vh - 120px)"
               />
             </div>
           </div>,
