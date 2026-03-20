@@ -92,6 +92,7 @@ const artifactInstruction = `
   - d3: データ可視化（低レベルな描画が必要な場合）
   - @radix-ui/themes: UIコンポーネント（Button, Card, Badge, Table, Dialog, Tabs, Tooltip, Flex, Grid, Text等）。使う場合は必ず先頭で「import '@radix-ui/themes/styles.css';」をimportし、ルートを「<Theme>...</Theme>」で囲むこと。「@radix-ui/react-tooltip」など個別のRadixパッケージは使わず、必ず@radix-ui/themesから使うこと。
   - react-katex: 数式レンダリング。「import 'katex/dist/katex.min.css'; import { InlineMath, BlockMath } from 'react-katex';」でimportして使う。katexを直接importしないこと。
+  - @react-three/fiber + @react-three/drei: 3Dグラフィクス。「import { Canvas, useFrame } from '@react-three/fiber'; import { OrbitControls, Text } from '@react-three/drei';」でimportして使う。Canvasコンポーネントを親にしてその中にmesh等を配置する。Canvasには必ずstyle={{ width: '100%', height: '400px' }}を指定すること。threeを直接importしないこと。
 ・React hooksはReactからimportして使ってよい（useState, useEffect, useMemo等）。
 ・理解を助けると考えられる場合はアニメーションやインタラクティブな要素を活用すること。
 

@@ -16,6 +16,9 @@ const SANDPACK_DEPENDENCIES: Record<string, string> = {
   "@radix-ui/themes": "3.2.0",
   katex: "0.16.9",
   "react-katex": "3.0.0",
+  three: "0.170.0",
+  "@react-three/fiber": "8.17.14",
+  "@react-three/drei": "9.122.0",
 };
 
 const SANDPACK_EXTERNAL_RESOURCES = [
