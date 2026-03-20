@@ -666,6 +666,7 @@ export default function App() {
                 selectedNodeId={selectedNodeId}
                 onNodeSelect={handleNodeSelect}
                 onFreeInputFromNode={handleFreeInputFromNode}
+                freeInputParentNodeId={freeInputMode ? contextParentNodeId : null}
               />
             </div>
           )}

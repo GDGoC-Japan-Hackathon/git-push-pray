@@ -175,10 +175,16 @@ function QANode({ data }: NodeProps) {
     : { width: NODE_WIDTH };
 
   if (isFreeInput) {
+    const freeInputBorder = answered
+      ? "border-green-300 cursor-not-allowed"
+      : d.selected
+        ? "border-green-500 shadow-sm cursor-pointer"
+        : "border-green-200 hover:border-green-400 hover:shadow-sm cursor-pointer";
+
     return (
       <div
         style={animStyle}
-        className={`rounded-xl shadow-sm border-2 border-green-300 overflow-hidden ${d.isNew ? "node-enter" : ""}`}
+        className={`rounded-xl shadow-sm border-2 transition-all overflow-hidden ${d.isNew ? "node-enter" : ""} ${freeInputBorder}`}
       >
         <Handle
           type="target"
@@ -215,12 +221,12 @@ function QANode({ data }: NodeProps) {
       : "border-green-300 cursor-not-allowed";
   } else if (d.selected) {
     borderClass = isVisualize
-      ? "border-purple-500 shadow-purple-200 shadow-md cursor-pointer"
-      : "border-blue-500 shadow-blue-200 shadow-md cursor-pointer";
+      ? "border-purple-500 shadow-sm cursor-pointer"
+      : "border-blue-500 shadow-sm cursor-pointer";
   } else {
     borderClass = isVisualize
-      ? "border-purple-200 hover:border-purple-400 hover:shadow-md cursor-pointer"
-      : "border-gray-200 hover:border-blue-300 hover:shadow-md cursor-pointer";
+      ? "border-purple-200 hover:border-purple-400 hover:shadow-sm cursor-pointer"
+      : "border-gray-200 hover:border-blue-300 hover:shadow-sm cursor-pointer";
   }
 
   return (
@@ -281,6 +287,7 @@ type AddSupplementData = {
   parentNodeId: string;
   depth: number;
   isNew: boolean;
+  selected: boolean;
 };
 
 function AddSupplementNode({ data }: NodeProps) {
@@ -292,7 +299,11 @@ function AddSupplementNode({ data }: NodeProps) {
   return (
     <div
       style={animStyle}
-      className={`rounded-xl border-2 border-dashed border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 cursor-pointer transition-all ${d.isNew ? "node-enter" : ""}`}
+      className={`rounded-xl border-2 border-dashed cursor-pointer transition-all ${d.isNew ? "node-enter" : ""} ${
+        d.selected
+          ? "border-green-500 bg-green-50 shadow-sm"
+          : "border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400"
+      }`}
     >
       <Handle
         type="target"
@@ -319,6 +330,7 @@ interface Props {
   selectedNodeId: string | null;
   onNodeSelect: (id: string) => void;
   onFreeInputFromNode?: (nodeId: string) => void;
+  freeInputParentNodeId?: string | null;
 }
 
 export function ConversationTreeView({
@@ -326,6 +338,7 @@ export function ConversationTreeView({
   selectedNodeId,
   onNodeSelect,
   onFreeInputFromNode,
+  freeInputParentNodeId,
 }: Props) {
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
@@ -437,6 +450,7 @@ export function ConversationTreeView({
           parentNodeId: supplementParents.get(suppId)!,
           depth: (depthMap.get(suppId) ?? 0) - (suppIsNew ? minNewDepth : 0),
           isNew: suppIsNew,
+          selected: supplementParents.get(suppId) === freeInputParentNodeId,
         },
       });
     }
@@ -497,7 +511,7 @@ export function ConversationTreeView({
     }
 
     return { nodes, edges };
-  }, [treeNodes, selectedNodeId]);
+  }, [treeNodes, selectedNodeId, freeInputParentNodeId]);
 
   // レンダー後に現在のノードIDを記録
   useEffect(() => {
