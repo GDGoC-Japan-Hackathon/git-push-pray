@@ -163,6 +163,7 @@ type QANodeData = {
   nodeType: "question" | "visualize" | "free_input";
   depth: number;
   isNew: boolean;
+  isRoot: boolean;
 };
 
 function QANode({ data }: NodeProps) {
@@ -173,6 +174,41 @@ function QANode({ data }: NodeProps) {
   const animStyle = d.isNew
     ? { width: NODE_WIDTH, animationDelay: `${d.depth * ANIM_STEP}s` }
     : { width: NODE_WIDTH };
+
+  if (d.isRoot) {
+    return (
+      <div
+        style={{
+          width: NODE_WIDTH + 40,
+          ...(d.isNew ? { animationDelay: `${d.depth * ANIM_STEP}s` } : {}),
+        }}
+        className={`rounded-2xl shadow-md border-2 border-blue-400 bg-gradient-to-br from-blue-50 to-indigo-50 overflow-hidden ${d.isNew ? "node-enter" : ""}`}
+      >
+        <Handle
+          type="target"
+          position={Position.Top}
+          style={{ opacity: 0, pointerEvents: "none" }}
+        />
+        <div className="px-4 py-3">
+          <p className="text-xs font-bold text-blue-500 mb-1">TOPIC</p>
+          <p className="text-base font-semibold text-gray-800 leading-snug">
+            {d.text}
+          </p>
+        </div>
+        {answered && (
+          <div className="px-4 py-2.5 border-t border-blue-100 bg-green-50/60">
+            <p className="text-xs font-semibold text-green-600 mb-0.5">A</p>
+            <p className="text-sm text-gray-700 leading-snug">{d.answer}</p>
+          </div>
+        )}
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          style={{ opacity: 0, pointerEvents: "none" }}
+        />
+      </div>
+    );
+  }
 
   if (isFreeInput) {
     const freeInputBorder = answered
@@ -433,6 +469,7 @@ export function ConversationTreeView({
           nodeType: n.type,
           depth: (depthMap.get(n.id) ?? 0) - (nodeIsNew ? minNewDepth : 0),
           isNew: nodeIsNew,
+          isRoot: n.parentId === "",
         },
       };
     });
@@ -554,6 +591,7 @@ export function ConversationTreeView({
           nodeColor={(node) => {
             if (node.type === "addSupplement") return "#9ca3af";
             const nd = node.data as unknown as QANodeData;
+            if (nd.isRoot) return "#3b82f6";
             if (nd.nodeType === "visualize") return "#a855f7";
             if (nd.nodeType === "free_input") return "#22c55e";
             return nd.answer !== "" ? "#22c55e" : "#3b82f6";
