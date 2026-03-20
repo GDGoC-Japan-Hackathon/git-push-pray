@@ -1,6 +1,14 @@
-import { XIcon, PlusIcon, MessageSquareIcon } from "lucide-react";
+import {
+  MessageSquareIcon,
+  MoreHorizontalIcon,
+  PlusIcon,
+  Trash2Icon,
+  XIcon,
+} from "lucide-react";
+import { useState } from "react";
 import type { ChatSession } from "../types";
 import { formatTimestamp } from "../utils/format";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 
 interface Props {
   open: boolean;
@@ -9,6 +17,7 @@ interface Props {
   onClose: () => void;
   onNewChat: () => void;
   onSelectSession: (id: string) => void;
+  onDeleteSession: (id: string) => Promise<void>;
 }
 
 export function Sidebar({
@@ -18,6 +27,7 @@ export function Sidebar({
   onClose,
   onNewChat,
   onSelectSession,
+  onDeleteSession,
 }: Props) {
   return (
     <>
@@ -53,6 +63,7 @@ export function Sidebar({
               session={session}
               isActive={session.id === activeSessionId}
               onSelect={onSelectSession}
+              onDelete={onDeleteSession}
             />
           ))}
         </div>
@@ -79,33 +90,98 @@ interface SessionItemProps {
   session: ChatSession;
   isActive: boolean;
   onSelect: (id: string) => void;
+  onDelete: (id: string) => Promise<void>;
 }
 
-function SessionItem({ session, isActive, onSelect }: SessionItemProps) {
+function SessionItem({
+  session,
+  isActive,
+  onSelect,
+  onDelete,
+}: SessionItemProps) {
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeleting(true);
+    try {
+      await onDelete(session.id);
+    } finally {
+      setDeleting(false);
+      setPopoverOpen(false);
+    }
+  };
+
   return (
-    <button
-      onClick={() => onSelect(session.id)}
-      className={`
-        w-full text-left px-3 py-2.5 rounded-lg transition-colors
-        ${
-          isActive
-            ? "bg-blue-50 border border-blue-200 text-blue-900"
-            : "hover:bg-gray-100 text-gray-700"
-        }
-      `}
-    >
-      <div className="flex items-start gap-2">
-        <MessageSquareIcon size={15} className="mt-0.5 shrink-0 opacity-60" />
-        <div className="min-w-0">
-          <div className="text-sm font-medium truncate">{session.title}</div>
-          <div className="text-xs text-gray-400 mt-0.5 truncate">
-            {session.lastMessage || "（メッセージなし）"}
+    <div className="relative group">
+      <button
+        onClick={() => onSelect(session.id)}
+        className={`
+          w-full text-left px-3 py-2.5 rounded-lg transition-colors pr-8
+          ${
+            isActive
+              ? "bg-blue-50 border border-blue-200 text-blue-900"
+              : "hover:bg-gray-100 text-gray-700"
+          }
+        `}
+      >
+        <div className="flex items-start gap-2">
+          <MessageSquareIcon size={15} className="mt-0.5 shrink-0 opacity-60" />
+          <div className="min-w-0">
+            <div className="text-sm font-medium truncate">{session.title}</div>
+            <div className="text-xs text-gray-400 mt-0.5 truncate">
+              {session.lastMessage || "（メッセージなし）"}
+            </div>
           </div>
         </div>
-      </div>
-      <div className="text-xs text-gray-400 mt-1 pl-5">
-        {formatTimestamp(session.timestamp)}
-      </div>
-    </button>
+        <div className="text-xs text-gray-400 mt-1 pl-5">
+          {formatTimestamp(session.timestamp)}
+        </div>
+      </button>
+
+      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+        <PopoverTrigger asChild>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setPopoverOpen(true);
+            }}
+            className={`
+              absolute right-1.5 top-1/2 -translate-y-1/2
+              p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-200
+              opacity-0 group-hover:opacity-100 transition-opacity
+              ${popoverOpen ? "opacity-100" : ""}
+            `}
+          >
+            <MoreHorizontalIcon size={15} />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="end" side="right" className="w-52 p-2">
+          <p className="text-xs text-gray-500 px-2 py-1 mb-1">
+            このチャットを削除しますか？
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setPopoverOpen(false);
+              }}
+              className="flex-1 px-3 py-1.5 text-xs rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              キャンセル
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+            >
+              <Trash2Icon size={12} />
+              {deleting ? "削除中..." : "削除"}
+            </button>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }
