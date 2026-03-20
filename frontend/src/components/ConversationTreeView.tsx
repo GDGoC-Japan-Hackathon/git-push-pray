@@ -103,9 +103,9 @@ function AnimatedEdge({
         d={edgePath}
         fill="none"
         stroke={isDashed ? ((style?.stroke as string) ?? "#d1d5db") : "#b1b1b7"}
-        strokeWidth={isDashed ? 1 : 1.5}
         strokeDasharray={isDashed ? "5 5" : undefined}
         markerEnd={markerEnd as string}
+        style={{ strokeWidth: 2 }}
       />
     );
   }
@@ -124,9 +124,9 @@ function AnimatedEdge({
         d={edgePath}
         fill="none"
         stroke={(style?.stroke as string) ?? "#d1d5db"}
-        strokeWidth={1}
         strokeDasharray="5 5"
         style={{
+          strokeWidth: 2,
           opacity: 0,
           animation: `edge-fade-in 0.25s ease ${edgeDelay}s forwards`,
         }}
@@ -141,11 +141,11 @@ function AnimatedEdge({
       d={edgePath}
       fill="none"
       stroke="#b1b1b7"
-      strokeWidth={1.5}
       pathLength={1}
       strokeDasharray={1}
       strokeDashoffset={1}
       style={{
+        strokeWidth: 2,
         animation: `edge-draw 0.28s ease ${edgeDelay}s forwards`,
       }}
     />
