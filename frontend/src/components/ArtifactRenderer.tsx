@@ -1,10 +1,7 @@
-import { useState, useEffect } from "react";
-import { Code, Eye, Copy, Check, Maximize2, X } from "lucide-react";
+import { Sandpack } from "@codesandbox/sandpack-react";
+import { Check, Code, Copy, Eye, Maximize2, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import {
-  SandpackProvider,
-  SandpackPreview,
-} from "@codesandbox/sandpack-react";
 import type { Artifact } from "../types";
 
 const SANDPACK_DEPENDENCIES: Record<string, string> = {
@@ -29,21 +26,19 @@ function SandpackArtifact({
   className?: string;
 }) {
   return (
-    <SandpackProvider
-      template="react"
-      files={{ "/App.js": code }}
-      customSetup={{ dependencies: SANDPACK_DEPENDENCIES }}
-      options={{
-        externalResources: SANDPACK_EXTERNAL_RESOURCES,
-      }}
-    >
-      <SandpackPreview
-        showOpenInCodeSandbox={false}
-        showRefreshButton={false}
-        style={style}
-        className={className}
+    <div style={style} className={className}>
+      <Sandpack
+        template="react"
+        files={{ "/App.js": code }}
+        customSetup={{ dependencies: SANDPACK_DEPENDENCIES }}
+        options={{
+          externalResources: SANDPACK_EXTERNAL_RESOURCES,
+          showNavigator: false,
+          showLineNumbers: false,
+          showInlineErrors: true,
+        }}
       />
-    </SandpackProvider>
+    </div>
   );
 }
 
