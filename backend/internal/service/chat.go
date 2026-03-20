@@ -90,6 +90,7 @@ const artifactInstruction = `
   - recharts: グラフ・チャート（BarChart, LineChart, PieChart, ResponsiveContainer等）
   - framer-motion: アニメーション（motion.div等）
   - d3: データ可視化（低レベルな描画が必要な場合）
+  - @radix-ui/themes: UIコンポーネント（Button, Card, Badge, Table, Dialog, Tabs, Flex, Grid, Text等）。使う場合は必ず先頭で「import '@radix-ui/themes/styles.css';」をimportし、ルートを「<Theme>...</Theme>」で囲むこと。
 ・React hooksはReactからimportして使ってよい（useState, useEffect, useMemo等）。
 ・理解を助けると考えられる場合はアニメーションやインタラクティブな要素を活用すること。
 

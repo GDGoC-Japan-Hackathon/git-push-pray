@@ -13,6 +13,7 @@ const SANDPACK_DEPENDENCIES: Record<string, string> = {
   recharts: "2.15.3",
   "framer-motion": "12.12.2",
   d3: "7.9.0",
+  "@radix-ui/themes": "3.2.0",
 };
 
 const SANDPACK_EXTERNAL_RESOURCES = ["https://cdn.tailwindcss.com"];
