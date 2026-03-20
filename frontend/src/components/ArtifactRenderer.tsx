@@ -10,6 +10,8 @@ import { createPortal } from "react-dom";
 import type { Artifact } from "../types";
 
 const SANDPACK_DEPENDENCIES: Record<string, string> = {
+  react: "18.3.1",
+  "react-dom": "18.3.1",
   recharts: "2.15.3",
   "framer-motion": "12.12.2",
   d3: "7.9.0",
