@@ -749,12 +749,14 @@ export default function App() {
           console.error("Review stream error:", data);
           setIsReviewLoading(false);
           setReviewStreamingText("");
+          setViewMode("chat");
         }
       });
     } catch (err) {
       console.error("Failed to request review:", err);
       setIsReviewLoading(false);
       setReviewStreamingText("");
+      setViewMode("chat");
     }
   }, [user, activeSessionId, isStreaming, isReviewLoading, apiBase]);
 
@@ -850,7 +852,7 @@ export default function App() {
             {activeSession?.phase === "teaching" &&
               !isStreaming &&
               !isReviewLoading &&
-              (suggestEnd ? (
+              suggestEnd && (
                 <div className="border-t border-orange-200 bg-orange-50 px-4 py-3">
                   <div className="max-w-3xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
                     <p className="text-sm text-orange-700">
@@ -872,16 +874,7 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-              ) : (
-                <div className="flex justify-center py-2 border-t border-gray-100 bg-gray-50">
-                  <button
-                    onClick={handleRequestReview}
-                    className="px-4 py-2 text-sm font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors"
-                  >
-                    学習を終了してレビューを受ける
-                  </button>
-                </div>
-              ))}
+              )}
             <PromptInput
               isStreaming={isStreaming}
               onSubmit={handleSubmit}
@@ -906,6 +899,8 @@ export default function App() {
                 setFreeInputMode(false);
                 setContextParentNodeId(null);
               }}
+              onRequestReview={handleRequestReview}
+              isReviewLoading={isReviewLoading}
             />
           </div>
         )}
