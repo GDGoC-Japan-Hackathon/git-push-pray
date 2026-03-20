@@ -82,10 +82,54 @@ const artifactInstruction = `
 ・先生の説明でまだ曖昧な部分や、もっと知りたい部分があれば、図の中で「？」マークや色分けで示してもよい。
 
 【技術要件】
-・codeには<body>の中身だけを書くこと。<!DOCTYPE html>や<html>タグは不要。
-・表示環境にはTailwind CSS、Inter フォントが事前に読み込まれている。Tailwindのユーティリティクラスを積極的に使うこと。
-・追加ライブラリが必要な場合はCDN（Chart.js, D3.js, Three.js等）を<script>タグで読み込んでよい。
-・理解を助けると考えられる場合はアニメーションやトランジションを活用して、洗練されたインタラクティブな体験を作ること。`
+・codeにはReact (JSX) コンポーネントを書くこと。必ず「export default function App() { return (...) }」の形式で始めること。
+・HTMLタグ（<!DOCTYPE>, <html>, <body>, <script>）は一切書かないこと。CDN読み込みも不要。
+・Tailwind CSSのユーティリティクラスが使える。積極的に使うこと。
+・以下のライブラリがimport可能（必要に応じて使う）:
+  - recharts: グラフ・チャート（BarChart, LineChart, PieChart, ResponsiveContainer等）
+  - framer-motion: アニメーション（motion.div等）
+  - d3: データ可視化（低レベルな描画が必要な場合）
+・React hooksはReactからimportして使ってよい（useState, useEffect, useMemo等）。
+・理解を助けると考えられる場合はアニメーションやインタラクティブな要素を活用すること。
+
+【デザインガイドライン】
+・カラーパレット: blue-500/600をプライマリ、gray-100〜800をベース、アクセントにamber-400やgreen-500を使う。
+・フォントサイズ: タイトルはtext-xl〜2xl font-bold、本文はtext-sm〜base、ラベルはtext-xs。
+・余白: カード間はspace-y-4、内側はp-4〜6。要素が窮屈にならないよう十分な余白を取る。
+・カード: bg-white rounded-xl shadow-sm border border-gray-100 を基本とする。
+・全体を min-h-[300px] p-6 で囲み、背景はbg-gradient-to-br from-gray-50 to-white等の柔らかいグラデーション。
+
+【良い例（rechartsを使ったグラフ）】
+import { useState } from "react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+
+const data = [
+  { name: "ステップA", value: 40 },
+  { name: "ステップB", value: 70 },
+  { name: "ステップC", value: 55 },
+];
+const COLORS = ["#3b82f6", "#10b981", "#f59e0b"];
+
+export default function App() {
+  const [active, setActive] = useState(null);
+  return (
+    <div className="min-h-[300px] p-6 bg-gradient-to-br from-gray-50 to-white">
+      <h2 className="text-xl font-bold text-gray-800 mb-4">プロセスの比較</h2>
+      <ResponsiveContainer width="100%" height={250}>
+        <BarChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+          <YAxis tick={{ fontSize: 12 }} />
+          <Tooltip />
+          <Bar dataKey="value" radius={[6, 6, 0, 0]} onMouseEnter={(_, i) => setActive(i)} onMouseLeave={() => setActive(null)}>
+            {data.map((_, i) => (<Cell key={i} fill={COLORS[i % COLORS.length]} opacity={active === null || active === i ? 1 : 0.4} />))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+※上記はあくまで形式の参考。実際の内容は会話に基づいて作成すること。`
 
 const artifactForceInstruction = `
 
@@ -599,7 +643,7 @@ func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conv
 		Description: "会話内容をビジュアルで表現すると理解が深まる場合に生成する。テキストだけで十分な場合は省略してよい。",
 		Properties: map[string]*genai.Schema{
 			"title": {Type: genai.TypeString, Description: "タイトル（20字以内）"},
-			"code":  {Type: genai.TypeString, Description: "自己完結したHTML（inline CSS/JS）。<body>の中身だけ書く。"},
+			"code":  {Type: genai.TypeString, Description: "React JSXコンポーネント。export default function App() の形式。"},
 		},
 		Required: []string{"title", "code"},
 	}
