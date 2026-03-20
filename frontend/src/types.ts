@@ -18,7 +18,26 @@ export interface ChatSession {
   lastMessage: string;
   timestamp: string;
   messages: ChatMessage[];
-  phase: "init" | "teaching";
+  phase: "init" | "teaching" | "review";
+}
+
+export interface TopicEvaluation {
+  topic: string;
+  score: number;
+  correctness: "correct" | "partially_correct" | "incorrect";
+  clarity: "clear" | "vague" | "unclear";
+  comment: string;
+}
+
+export interface ReviewResult {
+  conversation_id: string;
+  overall_score: number;
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  advice: string;
+  topic_evaluations: TopicEvaluation[];
+  phase: string;
 }
 
 export interface TreeNode {

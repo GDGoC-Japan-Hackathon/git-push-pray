@@ -198,6 +198,77 @@ func (h *Handler) DeleteConversation(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *Handler) Review(w http.ResponseWriter, r *http.Request) {
+	user, err := h.ensureUser(r)
+	if err != nil {
+		log.Printf("Failed to ensure user: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	switch r.Method {
+	case "POST":
+		var req model.ReviewRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if req.ConversationID == "" {
+			http.Error(w, "conversation_id is required", http.StatusBadRequest)
+			return
+		}
+
+		log.Printf("Review request: user=%s conversation=%s", user.ID.String(), req.ConversationID)
+
+		eventCh, err := h.svc.GenerateReview(r.Context(), user, req.ConversationID)
+		if err != nil {
+			log.Printf("GenerateReview error: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("X-Accel-Buffering", "no")
+
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "streaming not supported", http.StatusInternalServerError)
+			return
+		}
+
+		for event := range eventCh {
+			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event.Type, event.Data)
+			flusher.Flush()
+		}
+
+	case "GET":
+		conversationID := r.URL.Query().Get("conversation_id")
+		if conversationID == "" {
+			http.Error(w, "conversation_id is required", http.StatusBadRequest)
+			return
+		}
+
+		resp, err := h.svc.GetReview(user.ID, conversationID)
+		if err != nil {
+			log.Printf("GetReview error: %v", err)
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
 func (h *Handler) Sessions(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

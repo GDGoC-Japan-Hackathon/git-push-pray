@@ -27,7 +27,7 @@ func InitDB() error {
 	DB = db
 	log.Println("Database connection established successfully")
 
-	if err := db.AutoMigrate(&model.User{}, &model.Conversation{}, &model.Message{}, &model.ConversationTreeNode{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.Conversation{}, &model.Message{}, &model.ConversationTreeNode{}, &model.Review{}); err != nil {
 		return fmt.Errorf("auto migration failed: %w", err)
 	}
 	log.Println("Database migration completed successfully")

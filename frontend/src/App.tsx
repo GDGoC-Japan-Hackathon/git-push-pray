@@ -1,12 +1,13 @@
 import { nanoid } from "nanoid";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import type { ChatSession, TreeNode } from "./types";
+import type { ChatSession, ReviewResult, TreeNode } from "./types";
 
 import { ChatArea } from "./components/ChatArea";
 import { ConversationTreeView } from "./components/ConversationTreeView";
 import { Header, type ViewMode } from "./components/Header";
 import { PromptInput } from "./components/PromptInput";
+import { ReviewView } from "./components/ReviewView";
 import { Sidebar } from "./components/Sidebar";
 import { useAuth } from "./contexts/AuthContext";
 import { extractJSONStringField, readSSEStream } from "./utils/streamParser";
@@ -42,6 +43,12 @@ export default function App() {
   const [contextParentNodeId, setContextParentNodeId] = useState<string | null>(
     null
   );
+  const [suggestEnd, setSuggestEnd] = useState(false);
+  const [reviewResults, setReviewResults] = useState<
+    Record<string, ReviewResult>
+  >({});
+  const [isReviewLoading, setIsReviewLoading] = useState(false);
+  const [reviewStreamingText, setReviewStreamingText] = useState("");
   const { user, loading } = useAuth();
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
@@ -139,7 +146,7 @@ export default function App() {
             lastMessage: s.last_message,
             timestamp: s.updated_at || new Date().toISOString(),
             messages: [],
-            phase: (s.phase || "teaching") as "init" | "teaching",
+            phase: (s.phase || "teaching") as "init" | "teaching" | "review",
           })
         );
         setSessions(fetched);
@@ -161,7 +168,8 @@ export default function App() {
             const histData = await histResp.json();
             const histPhase = (histData.phase || "teaching") as
               | "init"
-              | "teaching";
+              | "teaching"
+              | "review";
             setSessions((prev) =>
               prev.map((s) =>
                 s.id === targetId
@@ -184,6 +192,25 @@ export default function App() {
                   : s
               )
             );
+            // review phase の場合はレビューを取得
+            if (histPhase === "review") {
+              setViewMode("review");
+              try {
+                const reviewResp = await fetch(
+                  `${apiBase}/api/review?conversation_id=${encodeURIComponent(targetId)}`,
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (reviewResp.ok) {
+                  const reviewData = await reviewResp.json();
+                  setReviewResults((prev) => ({
+                    ...prev,
+                    [targetId]: reviewData,
+                  }));
+                }
+              } catch (e) {
+                console.error("Failed to fetch review on initial load:", e);
+              }
+            }
           }
           const nodes = await fetchConversationTree(targetId);
           setLatestQuestions(getLatestQuestionGroup(nodes));
@@ -203,6 +230,8 @@ export default function App() {
     setFreeInputMode(false);
     setContextParentNodeId(null);
     setSidebarOpen(false);
+    setViewMode("chat");
+    setSuggestEnd(false);
     navigate("/");
   }, [navigate]);
 
@@ -217,7 +246,10 @@ export default function App() {
         );
         if (!resp.ok) return;
         const data = await resp.json();
-        const histPhase = (data.phase || "teaching") as "init" | "teaching";
+        const histPhase = (data.phase || "teaching") as
+          | "init"
+          | "teaching"
+          | "review";
         setSessions((prev) =>
           prev.map((s) =>
             s.id === sessionId
@@ -247,20 +279,49 @@ export default function App() {
     [user, apiBase]
   );
 
+  const fetchReview = useCallback(
+    async (sessionId: string) => {
+      if (!user || reviewResults[sessionId]) return;
+      try {
+        const token = await user.getIdToken();
+        const resp = await fetch(
+          `${apiBase}/api/review?conversation_id=${encodeURIComponent(sessionId)}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!resp.ok) return;
+        const data = (await resp.json()) as ReviewResult;
+        setReviewResults((prev) => ({ ...prev, [sessionId]: data }));
+      } catch (err) {
+        console.error("Failed to fetch review:", err);
+      }
+    },
+    [user, apiBase, reviewResults]
+  );
+
   const handleSelectSession = useCallback(
     async (id: string) => {
       setActiveSessionId(id);
       setSelectedNodeId(null);
       setLatestQuestions([]);
       setSidebarOpen(false);
+      setSuggestEnd(false);
       navigate(`/${id}`);
       const [, nodes] = await Promise.all([
         fetchHistory(id),
         fetchConversationTree(id),
       ]);
       setLatestQuestions(getLatestQuestionGroup(nodes));
+
+      // review phase のセッションはレビューを取得して表示
+      const selectedSession = sessions.find((s) => s.id === id);
+      if (selectedSession?.phase === "review") {
+        setViewMode("review");
+        fetchReview(id);
+      } else {
+        if (viewMode === "review") setViewMode("chat");
+      }
     },
-    [fetchHistory, fetchConversationTree, navigate]
+    [fetchHistory, fetchConversationTree, navigate, sessions, viewMode, fetchReview]
   );
 
   const handleViewModeChange = useCallback(
@@ -387,7 +448,8 @@ export default function App() {
             doneProcessed = true;
             const doneData = JSON.parse(data);
             const actualId: string = doneData.conversation_id || sessionId;
-            const donePhase: "init" | "teaching" = doneData.phase || "teaching";
+            const donePhase: "init" | "teaching" | "review" =
+              doneData.phase || "teaching";
 
             if (actualId !== sessionId) {
               setSessions((prev) =>
@@ -450,6 +512,11 @@ export default function App() {
                 questionIds.has(n.id)
               );
               setLatestQuestions(newQuestions);
+
+              // AIが学習完了を提案
+              if (doneData.suggest_end) {
+                setSuggestEnd(true);
+              }
             }
           } else if (event === "error") {
             console.error("Stream error:", data);
@@ -618,7 +685,57 @@ export default function App() {
     setFreeInputMode(true);
   }, []);
 
+  const handleRequestReview = useCallback(async () => {
+    if (!user || !activeSessionId || isStreaming || isReviewLoading) return;
+    setIsReviewLoading(true);
+    setReviewStreamingText("");
+    setViewMode("review");
+    setSuggestEnd(false);
+
+    try {
+      const token = await user.getIdToken();
+      const resp = await fetch(`${apiBase}/api/review`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ conversation_id: activeSessionId }),
+      });
+      if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+
+      await readSSEStream(resp, async (event, data) => {
+        if (event === "chunk") {
+          const { text } = JSON.parse(data) as { text: string };
+          setReviewStreamingText(text);
+        } else if (event === "done") {
+          const reviewData = JSON.parse(data) as ReviewResult;
+          setReviewResults((prev) => ({
+            ...prev,
+            [activeSessionId]: reviewData,
+          }));
+          setSessions((prev) =>
+            prev.map((s) =>
+              s.id === activeSessionId ? { ...s, phase: "review" } : s
+            )
+          );
+          setIsReviewLoading(false);
+          setReviewStreamingText("");
+        } else if (event === "error") {
+          console.error("Review stream error:", data);
+          setIsReviewLoading(false);
+          setReviewStreamingText("");
+        }
+      });
+    } catch (err) {
+      console.error("Failed to request review:", err);
+      setIsReviewLoading(false);
+      setReviewStreamingText("");
+    }
+  }, [user, activeSessionId, isStreaming, isReviewLoading, apiBase]);
+
   const isInitPhase = activeSession?.phase === "init";
+  const isReviewPhase = activeSession?.phase === "review";
 
   return (
     <div className="flex h-screen bg-white overflow-hidden">
@@ -639,34 +756,49 @@ export default function App() {
           viewMode={viewMode}
           onViewModeChange={handleViewModeChange}
           hideToggle={isInitPhase || !activeSession}
+          showReviewTab={isReviewPhase || isReviewLoading || (activeSessionId != null && reviewResults[activeSessionId] != null)}
         />
 
         {/* PC: 横並び / モバイル: viewModeで切り替え */}
         <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
-          <div
-            className={`flex flex-col flex-1 min-h-0 min-w-0 ${!isInitPhase && viewMode === "tree" ? "hidden md:flex" : "flex"}`}
-          >
-            <ChatArea
-              session={activeSession}
-              isStreaming={isStreaming}
-              onSuggestionClick={user ? handleSubmit : undefined}
-              latestQuestions={isInitPhase ? [] : latestQuestions}
-              onQuestionCardSelect={handleQuestionCardSelect}
-              onVisualizeClick={handleVisualizeClick}
-              onFreeInput={handleFreeInput}
+          {viewMode === "review" ? (
+            <ReviewView
+              review={
+                activeSessionId
+                  ? (reviewResults[activeSessionId] ?? null)
+                  : null
+              }
+              isLoading={isReviewLoading}
+              streamingText={reviewStreamingText}
             />
-          </div>
-          {!isInitPhase && (
-            <div
-              className={`flex flex-col flex-1 min-h-0 border-l border-gray-200 ${viewMode === "chat" ? "hidden" : "flex"}`}
-            >
-              <ConversationTreeView
-                treeNodes={activeTreeNodes}
-                selectedNodeId={selectedNodeId}
-                onNodeSelect={handleNodeSelect}
-                onFreeInputFromNode={handleFreeInputFromNode}
-              />
-            </div>
+          ) : (
+            <>
+              <div
+                className={`flex flex-col flex-1 min-h-0 min-w-0 ${!isInitPhase && viewMode === "tree" ? "hidden md:flex" : "flex"}`}
+              >
+                <ChatArea
+                  session={activeSession}
+                  isStreaming={isStreaming}
+                  onSuggestionClick={user ? handleSubmit : undefined}
+                  latestQuestions={isInitPhase ? [] : latestQuestions}
+                  onQuestionCardSelect={handleQuestionCardSelect}
+                  onVisualizeClick={handleVisualizeClick}
+                  onFreeInput={handleFreeInput}
+                />
+              </div>
+              {!isInitPhase && (
+                <div
+                  className={`flex flex-col flex-1 min-h-0 border-l border-gray-200 ${viewMode === "chat" ? "hidden" : "flex"}`}
+                >
+                  <ConversationTreeView
+                    treeNodes={activeTreeNodes}
+                    selectedNodeId={selectedNodeId}
+                    onNodeSelect={handleNodeSelect}
+                    onFreeInputFromNode={handleFreeInputFromNode}
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -675,12 +807,53 @@ export default function App() {
             <span className="inline-block w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mr-2"></span>
             <span className="text-gray-500 text-sm">読み込み中...</span>
           </div>
-        ) : user ? (
+        ) : !user ? (
+          <div className="p-6 border-t border-gray-100 bg-gray-50 text-center">
+            <p className="text-gray-500 text-sm mb-2">
+              チャットを開始するにはログインが必要です
+            </p>
+          </div>
+        ) : viewMode === "review" || isReviewLoading ? null : (
           <div
             className={
               !isInitPhase && viewMode === "tree" ? "hidden md:block" : ""
             }
           >
+            {activeSession?.phase === "teaching" &&
+              !isStreaming &&
+              !isReviewLoading &&
+              (suggestEnd ? (
+                <div className="border-t border-orange-200 bg-orange-50 px-4 py-3">
+                  <div className="max-w-3xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+                    <p className="text-sm text-orange-700">
+                      AIがこのテーマの学習完了を提案しています。レビューを受けますか？
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSuggestEnd(false)}
+                        className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        まだ続ける
+                      </button>
+                      <button
+                        onClick={handleRequestReview}
+                        className="px-3 py-1.5 text-xs font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
+                      >
+                        レビューを受ける
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-center py-2 border-t border-gray-100 bg-gray-50">
+                  <button
+                    onClick={handleRequestReview}
+                    className="px-4 py-2 text-sm font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors"
+                  >
+                    学習を終了してレビューを受ける
+                  </button>
+                </div>
+              ))}
             <PromptInput
               isStreaming={isStreaming}
               onSubmit={handleSubmit}
@@ -703,12 +876,6 @@ export default function App() {
                 setContextParentNodeId(null);
               }}
             />
-          </div>
-        ) : (
-          <div className="p-6 border-t border-gray-100 bg-gray-50 text-center">
-            <p className="text-gray-500 text-sm mb-2">
-              チャットを開始するにはログインが必要です
-            </p>
           </div>
         )}
       </div>
