@@ -1,6 +1,7 @@
 import {
   Handle,
   MarkerType,
+  MiniMap,
   Position,
   ReactFlow,
   getSmoothStepPath,
@@ -15,6 +16,9 @@ import { useCallback, useEffect, useMemo } from "react";
 import type { TreeNode } from "../types";
 
 const NODE_WIDTH = 240;
+const NODE_HEIGHT_Q = 60; // 質問のみ
+const NODE_HEIGHT_QA = 110; // 質問＋回答
+const NODE_HEIGHT_SUPP = 40; // 補足ボタン
 const NODE_GAP_X = 60;
 // Q+A両方表示時の最大ノード高さを考慮した余白
 const NODE_GAP_Y = 180;
@@ -407,6 +411,8 @@ export function ConversationTreeView({
         id: n.id,
         type: "qa",
         position: positions.get(n.id) ?? { x: 0, y: 0 },
+        width: NODE_WIDTH,
+        height: n.answer !== "" ? NODE_HEIGHT_QA : NODE_HEIGHT_Q,
         data: {
           text: n.text,
           answer: n.answer,
@@ -425,6 +431,8 @@ export function ConversationTreeView({
         id: suppId,
         type: "addSupplement",
         position: positions.get(suppId) ?? { x: 0, y: 0 },
+        width: NODE_WIDTH,
+        height: NODE_HEIGHT_SUPP,
         data: {
           parentNodeId: supplementParents.get(suppId)!,
           depth: (depthMap.get(suppId) ?? 0) - (suppIsNew ? minNewDepth : 0),
@@ -522,7 +530,20 @@ export function ConversationTreeView({
         nodesConnectable={false}
         elementsSelectable={false}
         onNodeClick={handleNodeClick}
-      />
+      >
+        <MiniMap
+          pannable
+          zoomable
+          nodeStrokeWidth={3}
+          nodeColor={(node) => {
+            if (node.type === "addSupplement") return "#9ca3af";
+            const nd = node.data as unknown as QANodeData;
+            if (nd.nodeType === "visualize") return "#a855f7";
+            if (nd.nodeType === "free_input") return "#22c55e";
+            return nd.answer !== "" ? "#22c55e" : "#3b82f6";
+          }}
+        />
+      </ReactFlow>
     </div>
   );
 }
