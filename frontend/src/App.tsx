@@ -377,7 +377,32 @@ export default function App() {
           },
           body: JSON.stringify(body),
         });
-        if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+        if (!resp.ok) {
+          const errorText = await resp.text();
+          const userMessage =
+            resp.status === 429
+              ? errorText.trim() ||
+                "1日のチャット上限に達しました。明日また試してください。"
+              : resp.status === 400
+                ? errorText.trim() || "リクエストが正しくありません。"
+                : "バックエンドへの接続に失敗しました。";
+          setSessions((prev) =>
+            prev.map((s) =>
+              s.id === sessionId
+                ? {
+                    ...s,
+                    messages: s.messages.map((m) =>
+                      m.id === msgId
+                        ? { ...m, content: userMessage, isStreaming: false }
+                        : m
+                    ),
+                  }
+                : s
+            )
+          );
+          setIsStreaming(false);
+          return;
+        }
 
         // SSEストリームを読み取り、リアルタイムで表示を更新
         let doneProcessed = false;

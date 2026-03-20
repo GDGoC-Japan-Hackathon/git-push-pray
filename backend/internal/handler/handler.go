@@ -8,8 +8,14 @@ import (
 
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/middleware"
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/model"
+	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/repository"
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/service"
 	"github.com/google/uuid"
+)
+
+const (
+	maxMessageLength = 500
+	dailyMessageLimit = 100
 )
 
 type Handler struct {
@@ -59,8 +65,23 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "message is required", http.StatusBadRequest)
 		return
 	}
+	if len([]rune(req.Message)) > maxMessageLength {
+		http.Error(w, fmt.Sprintf("メッセージが長すぎます（%d文字以内にしてください）", maxMessageLength), http.StatusBadRequest)
+		return
+	}
 
-	log.Printf("user=%s firebase_uid=%s conversation=%s message_len=%d parent_node=%s", user.ID.String(), user.FirebaseUID, req.ConversationID, len(req.Message), req.ParentNodeID)
+	count, err := repository.CountUserMessagesToday(user.ID)
+	if err != nil {
+		log.Printf("Failed to count user messages: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	if count >= dailyMessageLimit {
+		http.Error(w, fmt.Sprintf("1日のチャット上限（%d回）に達しました。明日また試してください。", dailyMessageLimit), http.StatusTooManyRequests)
+		return
+	}
+
+	log.Printf("user=%s firebase_uid=%s conversation=%s message_len=%d parent_node=%s daily_count=%d", user.ID.String(), user.FirebaseUID, req.ConversationID, len(req.Message), req.ParentNodeID, count)
 
 	eventCh, err := h.svc.ChatStream(r.Context(), user, req.ConversationID, req.Message, req.ParentNodeID, req.AnsweringQuestion, req.GenerateUI, req.IsSupplement, req.ContextParentNodeID)
 	if err != nil {

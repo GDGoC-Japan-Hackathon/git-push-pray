@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"github.com/GDGoC-Japan-Hackathon/git-push-pray/backend/internal/model"
 	"github.com/google/uuid"
 )
@@ -34,4 +36,14 @@ func GetLastMessage(conversationID uuid.UUID) (*model.Message, error) {
 		return nil, err
 	}
 	return &msg, nil
+}
+
+func CountUserMessagesToday(userID uuid.UUID) (int64, error) {
+	var count int64
+	today := time.Now().Truncate(24 * time.Hour)
+	err := DB.Model(&model.Message{}).
+		Joins("JOIN conversations ON conversations.id = messages.conversation_id").
+		Where("conversations.user_id = ? AND messages.created_at >= ? AND messages.role = ?", userID, today, "user").
+		Count(&count).Error
+	return count, err
 }
