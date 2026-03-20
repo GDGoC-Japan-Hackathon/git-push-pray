@@ -1,72 +1,56 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Code, Eye, Copy, Check, Maximize2, X } from "lucide-react";
 import { createPortal } from "react-dom";
+import {
+  SandpackProvider,
+  SandpackPreview,
+} from "@codesandbox/sandpack-react";
 import type { Artifact } from "../types";
 
-const RESIZE_SCRIPT = `<script>
-new ResizeObserver(() => {
-  window.parent.postMessage(
-    { type: 'resize', height: document.body.scrollHeight + 16 },
-    '*'
-  );
-}).observe(document.body);
-</script>`;
+const SANDPACK_DEPENDENCIES: Record<string, string> = {
+  recharts: "2.15.3",
+  "framer-motion": "12.12.2",
+  d3: "7.9.0",
+};
 
-const BASE_HEAD =
-  `<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://cdn.tailwindcss.com"></` +
-  `script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Inter', system-ui, sans-serif; padding: 16px; color: #1f2937; background: #fff; -webkit-font-smoothing: antialiased; }
-</style>`;
-
-function buildDocument(bodyContent: string): string {
-  return `<!DOCTYPE html>
-<html lang="ja">
-<head>${BASE_HEAD}</head>
-<body>${bodyContent}${RESIZE_SCRIPT}</body>
-</html>`;
-}
-
-function injectResizeObserver(html: string): string {
-  if (html.includes("</body>")) {
-    return html.replace("</body>", `${RESIZE_SCRIPT}</body>`);
-  }
-  return html + RESIZE_SCRIPT;
-}
+const SANDPACK_EXTERNAL_RESOURCES = ["https://cdn.tailwindcss.com"];
 
 interface Props {
   artifact: Artifact;
 }
 
+function SandpackArtifact({
+  code,
+  style,
+  className,
+}: {
+  code: string;
+  style?: React.CSSProperties;
+  className?: string;
+}) {
+  return (
+    <SandpackProvider
+      template="react"
+      files={{ "/App.js": code }}
+      customSetup={{ dependencies: SANDPACK_DEPENDENCIES }}
+      options={{
+        externalResources: SANDPACK_EXTERNAL_RESOURCES,
+      }}
+    >
+      <SandpackPreview
+        showOpenInCodeSandbox={false}
+        showRefreshButton={false}
+        style={style}
+        className={className}
+      />
+    </SandpackProvider>
+  );
+}
+
 export function ArtifactRenderer({ artifact }: Props) {
   const [showCode, setShowCode] = useState(false);
-  const [iframeHeight, setIframeHeight] = useState(300);
   const [copied, setCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const fullscreenIframeRef = useRef<HTMLIFrameElement>(null);
-
-  const handleMessage = useCallback((event: MessageEvent) => {
-    if (
-      event.data?.type === "resize" &&
-      typeof event.data.height === "number" &&
-      iframeRef.current &&
-      event.source === iframeRef.current.contentWindow
-    ) {
-      setIframeHeight(Math.min(Math.max(event.data.height, 100), 800));
-    }
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, [handleMessage]);
 
   useEffect(() => {
     if (!isFullscreen) return;
@@ -90,14 +74,6 @@ export function ArtifactRenderer({ artifact }: Props) {
       console.error("Failed to copy:", err);
     }
   };
-
-  // AIのコードが完全なHTMLドキュメントかどうかを判定
-  const isFullDocument = /^\s*<!doctype\s|^\s*<html[\s>]/i.test(artifact.code);
-
-  // ベーステンプレートでラップ（AIはbody内のコンテンツだけでOK）
-  const srcdoc = isFullDocument
-    ? injectResizeObserver(artifact.code)
-    : buildDocument(artifact.code);
 
   return (
     <div className="mt-3 rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
@@ -141,12 +117,9 @@ export function ArtifactRenderer({ artifact }: Props) {
           <code>{artifact.code}</code>
         </pre>
       ) : (
-        <iframe
-          ref={iframeRef}
-          srcDoc={srcdoc}
-          sandbox="allow-scripts"
-          style={{ width: "100%", height: iframeHeight, border: "none" }}
-          title={artifact.title}
+        <SandpackArtifact
+          code={artifact.code}
+          style={{ height: 400, border: "none" }}
         />
       )}
 
@@ -175,12 +148,9 @@ export function ArtifactRenderer({ artifact }: Props) {
                 </button>
               </div>
               {/* Modal Content */}
-              <iframe
-                ref={fullscreenIframeRef}
-                srcDoc={srcdoc}
-                sandbox="allow-scripts"
-                className="flex-1 w-full border-none"
-                title={artifact.title}
+              <SandpackArtifact
+                code={artifact.code}
+                className="flex-1 w-full"
               />
             </div>
           </div>,
