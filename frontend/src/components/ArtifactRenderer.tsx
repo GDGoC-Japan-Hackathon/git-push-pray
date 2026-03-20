@@ -14,9 +14,14 @@ const SANDPACK_DEPENDENCIES: Record<string, string> = {
   "framer-motion": "12.12.2",
   d3: "7.9.0",
   "@radix-ui/themes": "3.2.0",
+  katex: "0.16.9",
+  "react-katex": "3.0.0",
 };
 
-const SANDPACK_EXTERNAL_RESOURCES = ["https://cdn.tailwindcss.com"];
+const SANDPACK_EXTERNAL_RESOURCES = [
+  "https://cdn.tailwindcss.com",
+  "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css",
+];
 
 interface Props {
   artifact: Artifact;

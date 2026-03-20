@@ -90,7 +90,8 @@ const artifactInstruction = `
   - recharts: グラフ・チャート（BarChart, LineChart, PieChart, ResponsiveContainer等）
   - framer-motion: アニメーション（motion.div等）
   - d3: データ可視化（低レベルな描画が必要な場合）
-  - @radix-ui/themes: UIコンポーネント（Button, Card, Badge, Table, Dialog, Tabs, Flex, Grid, Text等）。使う場合は必ず先頭で「import '@radix-ui/themes/styles.css';」をimportし、ルートを「<Theme>...</Theme>」で囲むこと。
+  - @radix-ui/themes: UIコンポーネント（Button, Card, Badge, Table, Dialog, Tabs, Tooltip, Flex, Grid, Text等）。使う場合は必ず先頭で「import '@radix-ui/themes/styles.css';」をimportし、ルートを「<Theme>...</Theme>」で囲むこと。「@radix-ui/react-tooltip」など個別のRadixパッケージは使わず、必ず@radix-ui/themesから使うこと。
+  - react-katex: 数式レンダリング。「import 'katex/dist/katex.min.css'; import { InlineMath, BlockMath } from 'react-katex';」でimportして使う。katexを直接importしないこと。
 ・React hooksはReactからimportして使ってよい（useState, useEffect, useMemo等）。
 ・理解を助けると考えられる場合はアニメーションやインタラクティブな要素を活用すること。
 
