@@ -33,7 +33,7 @@ export default function App() {
     chatId ?? null
   );
   const [isStreaming, setIsStreaming] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("chat");
+  const [viewMode, setViewMode] = useState<ViewMode>("both");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [treeNodes, setTreeNodes] = useState<Record<string, TreeNode[]>>({});
   const [latestQuestions, setLatestQuestions] = useState<TreeNode[]>([]);
