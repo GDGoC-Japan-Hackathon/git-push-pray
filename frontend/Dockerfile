@@ -40,6 +40,7 @@ FROM nginxinc/nginx-unprivileged:1.27.3-alpine AS runner
 
 # ビルド済み静的ファイルをコピー（nginx-unprivilegedは内部でnginxユーザーを管理）
 COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 8080
 
