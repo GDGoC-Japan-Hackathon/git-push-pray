@@ -34,7 +34,20 @@ export default function App() {
     chatId ?? null
   );
   const [isStreaming, setIsStreaming] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("chat");
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    window.innerWidth >= 768 ? "both" : "chat"
+  );
+
+  // スマホ幅で both が選ばれていたら chat にフォールバック
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setViewMode((prev) => (prev === "both" ? "chat" : prev));
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [treeNodes, setTreeNodes] = useState<Record<string, TreeNode[]>>({});
   const [latestQuestions, setLatestQuestions] = useState<TreeNode[]>([]);
@@ -59,6 +72,17 @@ export default function App() {
     activeTreeNodes.find((n) => n.id === selectedNodeId) ?? null;
   const contextParentNode =
     activeTreeNodes.find((n) => n.id === contextParentNodeId) ?? null;
+
+  // ツリーノードが初めて作られたら自動で both 表示に切り替え（PC幅のみ）
+  useEffect(() => {
+    if (
+      activeTreeNodes.length > 0 &&
+      viewMode === "chat" &&
+      window.innerWidth >= 768
+    ) {
+      setViewMode("both");
+    }
+  }, [activeTreeNodes.length, viewMode]);
 
   // URLパラメータとactiveSessionIdを同期
   useEffect(() => {
@@ -327,7 +351,7 @@ export default function App() {
   const handleViewModeChange = useCallback(
     (mode: ViewMode) => {
       setViewMode(mode);
-      if (mode === "tree" && activeSessionId) {
+      if ((mode === "tree" || mode === "both") && activeSessionId) {
         fetchConversationTree(activeSessionId);
       }
     },
@@ -774,7 +798,7 @@ export default function App() {
           ) : (
             <>
               <div
-                className={`flex flex-col flex-1 min-h-0 min-w-0 ${!isInitPhase && viewMode === "tree" ? "hidden md:flex" : "flex"}`}
+                className={`flex flex-col flex-1 min-h-0 min-w-0 ${!isInitPhase && viewMode === "tree" ? "hidden" : "flex"}`}
               >
                 <ChatArea
                   session={activeSession}
@@ -789,12 +813,16 @@ export default function App() {
               {!isInitPhase && (
                 <div
                   className={`flex flex-col flex-1 min-h-0 border-l border-gray-200 ${viewMode === "chat" ? "hidden" : "flex"}`}
+                  style={viewMode === "both" ? { maxWidth: "50%" } : undefined}
                 >
                   <ConversationTreeView
                     treeNodes={activeTreeNodes}
                     selectedNodeId={selectedNodeId}
                     onNodeSelect={handleNodeSelect}
                     onFreeInputFromNode={handleFreeInputFromNode}
+                    freeInputParentNodeId={
+                      freeInputMode ? contextParentNodeId : null
+                    }
                   />
                 </div>
               )}
@@ -861,6 +889,9 @@ export default function App() {
               isVisualizeActive={generateUI}
               selectedQuestion={
                 isInitPhase ? null : (selectedNode?.text ?? null)
+              }
+              selectedNodeType={
+                isInitPhase ? null : (selectedNode?.type ?? null)
               }
               requiresSelection={
                 !isInitPhase && !freeInputMode && activeTreeNodes.length > 0
