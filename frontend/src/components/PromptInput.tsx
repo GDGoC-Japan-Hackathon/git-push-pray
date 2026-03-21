@@ -1,4 +1,4 @@
-import { ClipboardCheckIcon, SendIcon, SparklesIcon } from "lucide-react";
+import { ClipboardCheckIcon, SendIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 interface Props {
@@ -14,8 +14,6 @@ interface Props {
   onRequestReview?: () => void;
   isReviewLoading?: boolean;
   hasMessages?: boolean;
-  onVisualize?: () => void;
-  isVisualizeActive?: boolean;
 }
 
 export function PromptInput({
@@ -31,8 +29,6 @@ export function PromptInput({
   onRequestReview,
   isReviewLoading,
   hasMessages,
-  onVisualize,
-  isVisualizeActive,
 }: Props) {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -135,25 +131,6 @@ export function PromptInput({
               className="flex-1 bg-transparent resize-none outline-none text-sm text-gray-800 placeholder-gray-400 max-h-[200px] leading-relaxed disabled:cursor-not-allowed"
               style={{ height: "24px", fontSize: "16px", overflowY: "hidden" }}
             />
-            {hasMessages && !isInitPhase && (
-              <button
-                onClick={onVisualize}
-                disabled={isDisabled}
-                className={`
-                  flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all shrink-0
-                  ${
-                    isDisabled
-                      ? "text-gray-300 cursor-not-allowed"
-                      : isVisualizeActive
-                        ? "bg-purple-100 text-purple-700 ring-1 ring-purple-300"
-                        : "text-purple-500 hover:bg-purple-50 hover:text-purple-600"
-                  }
-                `}
-              >
-                <SparklesIcon size={14} />
-                ビジュアライズ
-              </button>
-            )}
             <SubmitButton onClick={handleSubmit} disabled={!canSubmit} />
           </div>
           {hasMessages && !isInitPhase && (

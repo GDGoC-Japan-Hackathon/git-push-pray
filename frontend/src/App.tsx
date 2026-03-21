@@ -728,10 +728,6 @@ export default function App() {
     setFreeInputMode(true);
   }, []);
 
-  const handleToggleVisualize = useCallback(() => {
-    setGenerateUI((prev) => !prev);
-  }, []);
-
   const handleRequestReview = useCallback(async () => {
     if (!user || !activeSessionId || isStreaming || isReviewLoading) return;
     setIsReviewLoading(true);
@@ -922,8 +918,6 @@ export default function App() {
               hasMessages={
                 !isInitPhase && (activeSession?.messages.length ?? 0) > 0
               }
-              onVisualize={handleToggleVisualize}
-              isVisualizeActive={generateUI}
             />
           </div>
         )}

@@ -39,7 +39,7 @@ export function Header({
       <div className="flex items-center gap-2 min-w-0">
         <BotAvatar />
         <span className="font-semibold text-gray-800 text-sm italic">
-          Pray Log
+          パピる
         </span>
       </div>
       {title && (
