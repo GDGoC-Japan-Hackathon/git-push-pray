@@ -2,6 +2,8 @@
 
 > ハッカソンチーム: Git Push & Pray
 
+https://youtu.be/gghczJqM910
+
 ## プロダクト概要
 
 <img width="1761" height="903" alt="Image" src="https://github.com/user-attachments/assets/35e6f7d9-3220-4147-9a6e-dffcd02fcb26" />
