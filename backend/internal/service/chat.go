@@ -102,7 +102,7 @@ const artifactInstruction = `
   - framer-motion (12.12.2): アニメーション（motion.div等）
   - d3 (7.9.0): データ可視化（低レベルな描画が必要な場合）
   - @radix-ui/themes (3.2.0): UIコンポーネント（Button, Card, Badge, Table, Dialog, Tabs, Tooltip, Flex, Grid, Text等）。使う場合は必ず先頭で「import '@radix-ui/themes/styles.css';」をimportし、ルートを「<Theme>...</Theme>」で囲むこと。「@radix-ui/react-tooltip」など個別のRadixパッケージは使わず、必ず@radix-ui/themesから使うこと。
-  - react-katex (3.0.0): 数式レンダリング。「import 'katex/dist/katex.min.css'; import { InlineMath, BlockMath } from 'react-katex';」でimportして使う。katexを直接importしないこと。
+  - react-katex (3.0.0): 数式レンダリング。「import 'katex/dist/katex.min.css'; import { InlineMath, BlockMath } from 'react-katex';」でimportして使う。katexを直接importしないこと。【重要】LaTeX文字列はJSXテキストノードに直接書かず、必ずconst式に定義してJSX式で渡すこと。例: const formula = "\\frac{\\text{対辺}}{\\text{斜辺}}"; → <InlineMath math={formula} />。JSXタグ間にバックスラッシュを直接書くとパースエラーになるため絶対禁止。
   - @react-three/fiber (8.17.14) + @react-three/drei (9.122.0): 3Dグラフィクス。「import { Canvas, useFrame } from '@react-three/fiber'; import { OrbitControls, Text } from '@react-three/drei';」でimportして使う。Canvasコンポーネントを親にしてその中にmesh等を配置する。Canvasには必ずstyle={{ width: '100%', height: '400px' }}を指定すること。threeを直接importしないこと。
 ・React hooksはReactからimportして使ってよい（useState, useEffect, useMemo等）。
 ・理解を助けると考えられる場合はアニメーションやインタラクティブな要素を活用すること。
