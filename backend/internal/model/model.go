@@ -30,6 +30,7 @@ type ChatResponse struct {
 	Artifact       *Artifact      `json:"artifact,omitempty"`
 	Phase          string         `json:"phase"`
 	Title          string         `json:"title,omitempty"`
+	SuggestEnd     bool           `json:"suggest_end,omitempty"`
 }
 
 type HistoryMessage struct {
@@ -65,4 +66,27 @@ type TreeNodeResponse struct {
 
 type ConversationTreeResponse struct {
 	Nodes []TreeNodeResponse `json:"nodes"`
+}
+
+type TopicEvaluation struct {
+	Topic       string `json:"topic"`
+	Score       int    `json:"score"`
+	Correctness string `json:"correctness"`
+	Clarity     string `json:"clarity"`
+	Comment     string `json:"comment"`
+}
+
+type ReviewRequest struct {
+	ConversationID string `json:"conversation_id"`
+}
+
+type ReviewResponse struct {
+	ConversationID   string            `json:"conversation_id"`
+	OverallScore     int               `json:"overall_score"`
+	Summary          string            `json:"summary"`
+	Strengths        []string          `json:"strengths"`
+	Weaknesses       []string          `json:"weaknesses"`
+	Advice           string            `json:"advice"`
+	TopicEvaluations []TopicEvaluation `json:"topic_evaluations"`
+	Phase            string            `json:"phase"`
 }

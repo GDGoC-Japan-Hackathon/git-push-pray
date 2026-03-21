@@ -1,11 +1,64 @@
+import "katex/dist/katex.min.css";
 import React from "react";
+import { BlockMath, InlineMath } from "react-katex";
 
-function parseLine(text: string): React.ReactNode[] {
+// $...$ または $$...$$ を含む行をパースしてKaTeXでレンダリング
+function parseMath(text: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  // $$...$$ (ブロック数式) → インライン扱いだがBlockMathで表示
+  const blockRegex = /\$\$([^$]+)\$\$/g;
+  // $...$ (インライン数式)
+  const inlineRegex = /\$([^$\n]+)\$/g;
+
+  let lastIndex = 0;
+  let key = 0;
+
+  // まず $$...$$ を処理
+  const segments: { start: number; end: number; node: React.ReactNode }[] = [];
+  let m: RegExpExecArray | null;
+
+  while ((m = blockRegex.exec(text)) !== null) {
+    segments.push({
+      start: m.index,
+      end: m.index + m[0].length,
+      node: <BlockMath key={key++} math={m[1]} />,
+    });
+  }
+  while ((m = inlineRegex.exec(text)) !== null) {
+    // $$...$$ の範囲と重ならない場合のみ
+    const overlaps = segments.some(
+      (s) => m!.index >= s.start && m!.index < s.end
+    );
+    if (!overlaps) {
+      segments.push({
+        start: m.index,
+        end: m.index + m[0].length,
+        node: <InlineMath key={key++} math={m[1]} />,
+      });
+    }
+  }
+
+  segments.sort((a, b) => a.start - b.start);
+
+  for (const seg of segments) {
+    if (seg.start > lastIndex) {
+      parts.push(...parseInline(text.slice(lastIndex, seg.start), key++));
+    }
+    parts.push(seg.node);
+    lastIndex = seg.end;
+  }
+  if (lastIndex < text.length) {
+    parts.push(...parseInline(text.slice(lastIndex), key++));
+  }
+  return parts;
+}
+
+function parseInline(text: string, baseKey: number): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
   const regex = /(`[^`]+`|\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
-  let key = 0;
+  let key = baseKey * 1000;
 
   while ((match = regex.exec(text)) !== null) {
     if (match.index > lastIndex) {
@@ -32,6 +85,10 @@ function parseLine(text: string): React.ReactNode[] {
     parts.push(text.slice(lastIndex));
   }
   return parts;
+}
+
+function parseLine(text: string): React.ReactNode[] {
+  return parseMath(text);
 }
 
 export function renderMarkdown(text: string): React.ReactElement[] {
@@ -62,6 +119,17 @@ export function renderMarkdown(text: string): React.ReactElement[] {
 
     if (inCodeBlock) {
       codeLines.push(line);
+      continue;
+    }
+
+    // $$...$$ が行全体を占める場合はブロック数式として独立表示
+    const blockOnlyMatch = line.trim().match(/^\$\$([^$]+)\$\$$/);
+    if (blockOnlyMatch) {
+      result.push(
+        <div key={key++} className="my-2">
+          <BlockMath math={blockOnlyMatch[1]} />
+        </div>
+      );
       continue;
     }
 

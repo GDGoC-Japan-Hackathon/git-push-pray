@@ -46,6 +46,9 @@ func ListConversationsByUserID(userID uuid.UUID) ([]model.Conversation, error) {
 
 func DeleteConversation(id uuid.UUID) error {
 	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("conversation_id = ?", id).Delete(&model.Review{}).Error; err != nil {
+			return err
+		}
 		if err := tx.Where("conversation_id = ?", id).Delete(&model.ConversationTreeNode{}).Error; err != nil {
 			return err
 		}
