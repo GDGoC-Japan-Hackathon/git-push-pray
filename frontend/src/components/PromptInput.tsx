@@ -14,6 +14,8 @@ interface Props {
   onRequestReview?: () => void;
   isReviewLoading?: boolean;
   hasMessages?: boolean;
+  isReviewDone?: boolean; // レビュー完了済み
+  onViewReview?: () => void; // レビュー結果を表示する
 }
 
 export function PromptInput({
@@ -29,6 +31,8 @@ export function PromptInput({
   onRequestReview,
   isReviewLoading,
   hasMessages,
+  isReviewDone,
+  onViewReview,
 }: Props) {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -108,46 +112,58 @@ export function PromptInput({
           </div>
         )}
         <div className="flex items-end gap-2">
-          {hasMessages && !isInitPhase && (
-            <div className="shrink-0 px-3 py-3 text-xs font-medium invisible flex items-center gap-1 border">
-              <ClipboardCheckIcon size={16} />
-              レビューを開始
-            </div>
-          )}
-          <div
-            className={`flex gap-2 items-end flex-1 min-w-0 bg-gray-50 border rounded-2xl px-4 py-3 transition-all
-            ${isDisabled ? "border-gray-100 opacity-60" : "border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"}
-          `}
-          >
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              placeholder={placeholder}
-              disabled={isDisabled}
-              rows={1}
-              className="flex-1 bg-transparent resize-none outline-none text-sm text-gray-800 placeholder-gray-400 max-h-[200px] leading-relaxed disabled:cursor-not-allowed"
-              style={{ height: "24px", fontSize: "16px", overflowY: "hidden" }}
-            />
-            <SubmitButton onClick={handleSubmit} disabled={!canSubmit} />
-          </div>
-          {hasMessages && !isInitPhase && (
+          {isReviewDone ? (
             <button
-              onClick={onRequestReview}
-              disabled={isStreaming || isReviewLoading}
-              className={`
-                flex items-center gap-1 px-3 py-3 rounded-2xl text-xs font-medium transition-all shrink-0 border
-                ${
-                  isStreaming || isReviewLoading
-                    ? "border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed"
-                    : "border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100 hover:border-orange-300"
-                }
-              `}
+              onClick={onViewReview}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-sm font-medium border border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100 hover:border-orange-300 transition-all"
             >
               <ClipboardCheckIcon size={16} />
-              {isReviewLoading ? "レビュー中..." : "レビューを開始"}
+              レビューを見る
             </button>
+          ) : (
+            <>
+              {hasMessages && !isInitPhase && (
+                <div className="shrink-0 px-3 py-3 text-xs font-medium invisible flex items-center gap-1 border">
+                  <ClipboardCheckIcon size={16} />
+                  レビューを開始
+                </div>
+              )}
+              <div
+                className={`flex gap-2 items-end flex-1 min-w-0 bg-gray-50 border rounded-2xl px-4 py-3 transition-all
+                ${isDisabled ? "border-gray-100 opacity-60" : "border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100"}
+              `}
+              >
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={handleChange}
+                  onKeyDown={handleKeyDown}
+                  placeholder={placeholder}
+                  disabled={isDisabled}
+                  rows={1}
+                  className="flex-1 bg-transparent resize-none outline-none text-sm text-gray-800 placeholder-gray-400 max-h-[200px] leading-relaxed disabled:cursor-not-allowed"
+                  style={{ height: "24px", fontSize: "16px", overflowY: "hidden" }}
+                />
+                <SubmitButton onClick={handleSubmit} disabled={!canSubmit} />
+              </div>
+              {hasMessages && !isInitPhase && (
+                <button
+                  onClick={onRequestReview}
+                  disabled={isStreaming || isReviewLoading}
+                  className={`
+                    flex items-center gap-1 px-3 py-3 rounded-2xl text-xs font-medium transition-all shrink-0 border
+                    ${
+                      isStreaming || isReviewLoading
+                        ? "border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed"
+                        : "border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100 hover:border-orange-300"
+                    }
+                  `}
+                >
+                  <ClipboardCheckIcon size={16} />
+                  {isReviewLoading ? "レビュー中..." : "レビューを開始"}
+                </button>
+              )}
+            </>
           )}
         </div>
         <div className="flex justify-between items-center mt-2">

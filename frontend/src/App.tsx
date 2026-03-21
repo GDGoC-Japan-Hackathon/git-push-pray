@@ -918,6 +918,11 @@ export default function App() {
               hasMessages={
                 !isInitPhase && (activeSession?.messages.length ?? 0) > 0
               }
+              isReviewDone={
+                activeSessionId != null &&
+                reviewResults[activeSessionId] != null
+              }
+              onViewReview={() => setViewMode("review")}
             />
           </div>
         )}
