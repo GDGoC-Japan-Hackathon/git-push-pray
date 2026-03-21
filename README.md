@@ -60,6 +60,11 @@ AIはあなたの説明を受けて、「それはどういう意味？」「な
 
 <img width="736" height="343" alt="Image" src="https://github.com/user-attachments/assets/db1dea6e-5142-4da5-98b2-974b40579743" />
 
+|理解のビジュアライズ|操作可能なUI生成|
+|-|-|
+|<img width="665" height="783" alt="Image" src="https://github.com/user-attachments/assets/b49397d5-3c82-4248-a6a5-cbbf3b18fc84" />|<img width="655" height="576" alt="image" src="https://github.com/user-attachments/assets/248a50bb-8276-4a3a-a53f-b50a666a299c" />|
+
+
 ### Step 3 — 会話ツリーで理解の広がりを確認する
 
 画面右側に**会話ツリー**が育っていきます。自分がどの問いに答えて、どこでつまずいたか、対話の構造が一目でわかります。
