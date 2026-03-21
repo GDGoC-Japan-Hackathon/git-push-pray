@@ -5,6 +5,7 @@ import {
   Position,
   ReactFlow,
   getSmoothStepPath,
+  useReactFlow,
   type Edge,
   type EdgeProps,
   type Node,
@@ -12,7 +13,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { PenLineIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TreeNode } from "../types";
 
 const NODE_WIDTH = 240;
@@ -359,6 +360,43 @@ function AddSupplementNode({ data }: NodeProps) {
   );
 }
 
+function ViewportController({
+  nodes,
+  done,
+  rfReady,
+  onDone,
+}: {
+  nodes: Node[];
+  done: boolean;
+  rfReady: boolean;
+  onDone: () => void;
+}) {
+  const { setCenter } = useReactFlow();
+  useEffect(() => {
+    if (done || !rfReady || nodes.length === 0) return;
+    const rootNode = nodes.find((n) => (n.data as unknown as QANodeData).isRoot);
+    if (!rootNode) return;
+    // ReactFlow がノードを描画し終えてから setCenter を呼ぶため rAF を2回重ねる
+    let raf1: number;
+    let raf2: number;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        setCenter(
+          rootNode.position.x + (NODE_WIDTH + 40) / 2,
+          rootNode.position.y + NODE_HEIGHT_Q / 2,
+          { zoom: 0.8, duration: 300 }
+        );
+        onDone();
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [nodes, done, rfReady, setCenter, onDone]);
+  return null;
+}
+
 const nodeTypes = { qa: QANode, addSupplement: AddSupplementNode };
 
 interface Props {
@@ -378,10 +416,13 @@ export function ConversationTreeView({
 }: Props) {
   // 会話切り替え時（ノードが空になった時）にリセット
   const prevRootIdRef = useRef<string | null>(null);
+  const [viewInitialized, setViewInitialized] = useState(false);
+  const [rfReady, setRfReady] = useState(false);
   useEffect(() => {
     const rootId = treeNodes.length > 0 ? treeNodes[0].id : null;
     if (prevRootIdRef.current !== null && rootId !== prevRootIdRef.current) {
       knownNodeIds.clear();
+      setViewInitialized(false);
     }
     prevRootIdRef.current = rootId;
   }, [treeNodes]);
@@ -592,15 +633,20 @@ export function ConversationTreeView({
         edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.3, minZoom: 0.5 }}
         minZoom={0.1}
         maxZoom={1.5}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
         onNodeClick={handleNodeClick}
+        onInit={() => setRfReady(true)}
       >
+        <ViewportController
+          nodes={nodes}
+          done={viewInitialized}
+          rfReady={rfReady}
+          onDone={() => setViewInitialized(true)}
+        />
         <MiniMap
           pannable
           zoomable
