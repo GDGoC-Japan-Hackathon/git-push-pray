@@ -35,8 +35,7 @@ export function PromptInput({
 
   const MAX_LENGTH = 500;
   const isOverLimit = [...input].length > MAX_LENGTH;
-  const isDisabled =
-    isStreaming || (requiresSelection && !selectedQuestion) || isOverLimit;
+  const isDisabled = isStreaming || (requiresSelection && !selectedQuestion);
 
   // AIの応答完了時にテキストエリアにフォーカス
   const wasStreaming = useRef(false);
@@ -48,7 +47,7 @@ export function PromptInput({
   }, [isStreaming]);
 
   const handleSubmit = () => {
-    if (!input.trim() || isDisabled) return;
+    if (!input.trim() || isDisabled || isOverLimit) return;
     onSubmit(input.trim());
     setInput("");
     if (textareaRef.current) {
@@ -69,7 +68,7 @@ export function PromptInput({
     }
   };
 
-  const canSubmit = Boolean(input.trim()) && !isDisabled;
+  const canSubmit = Boolean(input.trim()) && !isDisabled && !isOverLimit;
 
   const placeholder = isInitPhase
     ? "学びたいテーマを入力... (Enterで送信、Shift+Enterで改行)"

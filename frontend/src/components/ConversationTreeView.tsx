@@ -13,7 +13,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { PenLineIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TreeNode } from "../types";
 
 const NODE_WIDTH = 240;
@@ -377,9 +377,8 @@ function ViewportController({
     const rootNode = nodes.find((n) => (n.data as unknown as QANodeData).isRoot);
     if (!rootNode) return;
     // ReactFlow がノードを描画し終えてから setCenter を呼ぶため rAF を2回重ねる
-    let raf1: number;
     let raf2: number;
-    raf1 = requestAnimationFrame(() => {
+    const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
         setCenter(
           rootNode.position.x + (NODE_WIDTH + 40) / 2,
@@ -415,17 +414,19 @@ export function ConversationTreeView({
   freeInputParentNodeId,
 }: Props) {
   // 会話切り替え時（ノードが空になった時）にリセット
-  const prevRootIdRef = useRef<string | null>(null);
+  const rootId = treeNodes.length > 0 ? treeNodes[0].id : null;
+  const [prevRootId, setPrevRootId] = useState<string | null>(null);
   const [viewInitialized, setViewInitialized] = useState(false);
   const [rfReady, setRfReady] = useState(false);
-  useEffect(() => {
-    const rootId = treeNodes.length > 0 ? treeNodes[0].id : null;
-    if (prevRootIdRef.current !== null && rootId !== prevRootIdRef.current) {
+
+  // Reactの derived state パターン: rootIdが変わったらrender中にリセット
+  if (rootId !== prevRootId) {
+    setPrevRootId(rootId);
+    if (prevRootId !== null) {
       knownNodeIds.clear();
       setViewInitialized(false);
     }
-    prevRootIdRef.current = rootId;
-  }, [treeNodes]);
+  }
 
   // アンマウント時にクリア
   useEffect(() => {
