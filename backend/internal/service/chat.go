@@ -89,11 +89,6 @@ const artifactInstruction = `
 ・会話の中で先生が強調したポイント、繰り返し説明した部分を重点的に視覚化すること。
 ・先生の説明の流れ（順序・因果関係・対比など）をビジュアルの構造に反映させること。
 
-【前回のartifactを進化させる（最重要）】
-・会話履歴に[前回生成したartifact]が含まれている場合、そのコードをベースに今回の新しい情報を追加・拡張すること。
-・新しい説明で登場した概念・数値・関係性を前回のビジュアルに積み上げていくこと。セクションの追加、データの更新、新しいパネルの追加等で進化させること。
-・前回と全く同じ構造・レイアウト・内容のコードを出力しないこと。必ず今回の会話で得た新情報が視覚的に加わっていること。
-
 【品質基準（最重要）】
 ・プロのUIデザイナーが作成したような、視覚的に洗練された高品質なビジュアルを生成すること。
 ・色・サイズ・余白・フォントに一貫したデザインシステムを適用し、視覚的な矛盾（色のばらつき、サイズの不統一、余白のズレ等）が一切ないようにすること。
@@ -160,7 +155,12 @@ export default function App() {
 const artifactForceInstruction = `
 
 【ユーザーからのビジュアライズリクエスト】
-ユーザーがビジュアライズを明示的にリクエストしています。artifactフィールドにHTMLを必ず生成してください。空にすることは禁止です。`
+ユーザーがビジュアライズを明示的にリクエストしています。artifactフィールドにコードを必ず生成してください。空にすることは禁止です。
+
+【前回のartifactを進化させる（最重要）】
+・会話履歴に[前回生成したartifact]が含まれている場合、そのコードをベースに今回の新しい情報を追加・拡張すること。
+・新しい説明で登場した概念・数値・関係性を前回のビジュアルに積み上げていくこと。セクションの追加、データの更新、新しいパネルの追加等で進化させること。
+・前回と全く同じ構造・レイアウト・内容のコードを出力しないこと。必ず今回の会話で得た新情報が視覚的に加わっていること。`
 
 const initSystemInstruction = `あなたはユーザーが学びたいテーマを具体化するためのアシスタントです。
 ユーザーが入力したテーマについて、2〜3回の短い対話で学習範囲を絞り込んでください。
@@ -643,8 +643,13 @@ func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conv
 		}
 		text := m.Content
 		// 最後のartifactを持つメッセージにコードを付加
+		// generateUI時はコードも渡す（進化の起点）、通常時はタイトルのみ（存在の把握のため）
 		if i == lastArtifactIndex && m.ArtifactCode != "" {
-			text += fmt.Sprintf("\n\n[前回生成したartifact: %s]\n%s", m.ArtifactTitle, m.ArtifactCode)
+			if generateUI {
+				text += fmt.Sprintf("\n\n[前回生成したartifact: %s]\n%s", m.ArtifactTitle, m.ArtifactCode)
+			} else {
+				text += fmt.Sprintf("\n\n[前回生成したartifact（タイトル）: %s]", m.ArtifactTitle)
+			}
 		}
 		contents = append(contents, &genai.Content{
 			Role:  role,
