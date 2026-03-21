@@ -5,7 +5,7 @@ import {
   NetworkIcon,
   ClipboardCheckIcon,
 } from "lucide-react";
-import { BotAvatar } from "./BotAvatar";
+import { AppIcon } from "./AppIcon";
 import { LoginButton } from "./auth/LoginButton";
 
 export type ViewMode = "chat" | "both" | "tree" | "review";
@@ -37,7 +37,7 @@ export function Header({
         <MenuIcon size={20} />
       </button>
       <div className="flex items-center gap-2 min-w-0">
-        <BotAvatar />
+        <AppIcon />
         <span className="font-semibold text-gray-800 text-sm italic">
           パピる
         </span>

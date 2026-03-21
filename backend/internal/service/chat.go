@@ -619,15 +619,15 @@ func (svc *ChatService) chatStreamTeaching(ctx context.Context, conv *model.Conv
 		return nil, err
 	}
 
-	// ユーザーメッセージ数をカウント（5ラリーに1回終了提案）
+	// ユーザーメッセージ数をカウント（11ラリーに1回終了提案）
 	userMsgCount := 0
 	for _, m := range dbMessages {
 		if m.Role == "user" {
 			userMsgCount++
 		}
 	}
-	// 現在のメッセージを含めたカウントが5の倍数なら終了提案
-	suggestEnd := (userMsgCount+1)%5 == 0
+	// 現在のメッセージを含めたカウントが11の倍数なら終了提案
+	suggestEnd := (userMsgCount+1)%11 == 0
 
 	// 全会話履歴をGeminiに渡す
 	// 最後のartifactコードを常に含める（AI自律生成のため）
